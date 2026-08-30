@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import stat_card, status_pill, priority_pill,
+                                       empty_state with context %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Admin Dashboard</h1>
+  <div class="ms-auto d-flex flex-wrap gap-2">
+    <a href="{{ url_for('admin.analytics') }}" class="btn btn-outline-secondary">
+      {{ icon('chart', 16) }} Analytics
+    </a>
+    <form method="post" action="{{ url_for('admin.escalate') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-secondary">
+        {{ icon('alert', 16) }} Escalate overdue
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  {{ stat_card('Total complaints', counts.TOTAL, 'primary', 'inbox', url_for('admin.queue')) }}
+  {{ stat_card('Open', counts.OPEN, 'info', 'clock') }}
+  {{ stat_card('Unassigned', unassigned|length, 'warning', 'user-plus',
+               url_for('admin.queue', unassigned='1')) }}
+  {{ stat_card('Overdue', overdue|length, 'danger', 'alert') }}
+</div>
+
+<div class="row g-3 mb-4">
+  {{ stat_card('In progress', counts[Status.IN_PROGRESS], 'info', 'zap') }}
+  {{ stat_card('Awaiting student', counts[Status.STUDENT_VERIFICATION], 'warning', 'eye') }}
+  {{ stat_card('Closed', counts[Status.CLOSED], 'success', 'check') }}
+  {{ stat_card('Evidence photos', total_evidence, 'secondary', 'image') }}
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        {{ icon('user-plus', 20) }} Waiting to be assigned
+        <a href="{{ url_for('admin.queue', unassigned='1') }}"
+           class="file-count text-decoration-none">View all</a>
+      </div>
+      {% if unassigned %}
+        <ul class="list-group list-group-flush">
+          {% for complaint in unassigned[:8] %}
+            <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
+              <div class="flex-grow-1" style="min-width: 180px;">
+                <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+                   class="complaint-code">{{ complaint.code }}</a>
+                <span class="complaint-title">{{ complaint.title }}</span>
+                <div class="body-sm text-muted">
+                  {{ complaint.category.name }} &middot; {{ complaint.location.name }}
+                  &middot; {{ complaint.created_at|since }}
+                </div>
+              </div>
+              {{ priority_pill(complaint.priority) }}
+              <a href="{{ url_for('admin.assign_complaint', complaint_id=complaint.id) }}"
+                 class="btn btn-primary btn-sm">Assign</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {{ empty_state('check', 'Every complaint has been assigned.') }}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">{{ icon('alert', 20) }} Past SLA deadline</div>
+      {% if overdue %}
+        <ul class="list-group list-group-flush">
+          {% for complaint in overdue[:8] %}
+            <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
+              <div class="flex-grow-1" style="min-width: 180px;">
+                <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+                   class="complaint-code">{{ complaint.code }}</a>
+                <span class="complaint-title">{{ complaint.title }}</span>
+                <div class="body-sm text-muted">
+                  {{ complaint.hours_remaining|abs }}h overdue &middot;
+                  {{ complaint.assigned_staff.name if complaint.assigned_staff else 'Not Assigned' }}
+                </div>
+              </div>
+              {{ status_pill(complaint.status) }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {{ empty_state('shield', 'Nothing has breached its deadline.') }}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

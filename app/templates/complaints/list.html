@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import complaint_row, empty_state with context %}
+{% block title %}{{ heading }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>{{ heading }}</h1>
+  {% if current_user.is_student %}
+    <a href="{{ url_for('complaints.new') }}" class="btn btn-primary ms-auto">
+      {{ icon('plus', 18) }} New Complaint
+    </a>
+  {% endif %}
+</div>
+
+<div class="mb-4 d-flex flex-wrap gap-2">
+  <a href="{{ url_for('complaints.index') }}"
+     class="filter-chip {{ 'active' if not status_filter }}">All</a>
+  {% for status in Status.ALL %}
+    <a href="{{ url_for('complaints.index', status=status) }}"
+       class="filter-chip {{ 'active' if status_filter == status }}">
+      {{ STATUS_LABELS.get(status, status) }}
+    </a>
+  {% endfor %}
+</div>
+
+{% if complaints %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Code</th><th>Title</th><th>Category</th><th>Location</th>
+            {% if not current_user.is_student %}<th>Student</th>{% endif %}
+            {% if current_user.is_student %}<th>Assigned</th>{% endif %}
+            <th>Priority</th><th>Status</th><th>Filed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in complaints %}
+            {{ complaint_row(complaint,
+                             show_student=not current_user.is_student,
+                             show_staff=current_user.is_student) }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="body-sm text-muted mt-2 mb-0">{{ complaints|length }} complaint(s).</p>
+{% else %}
+  <div class="card">
+    {{ empty_state('inbox', 'No complaints match this filter.',
+                   'Try a different status, or clear the filter.') }}
+  </div>
+{% endif %}
+{% endblock %}

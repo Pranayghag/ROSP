@@ -1,0 +1,69 @@
+[project]
+name = "rosp"
+version = "0.1.0"
+description = "Campus complaint management system with photo evidence, built with Flask and MySQL."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = [
+    "complaint-management",
+    "grievance-portal",
+    "campus",
+    "flask",
+    "mysql",
+    "file-upload",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://github.com/OWNER/ROSP"
+Issues = "https://github.com/OWNER/ROSP/issues"
+
+# ---------------------------------------------------------------------------
+# Lint configuration. Pinned explicitly so `ruff check` behaves identically on
+# every contributor's machine and in CI, regardless of any global ruff config.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 90
+target-version = "py311"
+extend-exclude = ["app/static/vendor", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplify
+    "ISC",  # implicit string concatenation
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line length is handled by the formatter, not the linter
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts insert the project root on sys.path before importing the app, so
+# their imports cannot sit at the top of the file.
+"scripts/*.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "config"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    # SQLAlchemy emits this for the legacy Query API used by Flask-SQLAlchemy.
+    "ignore::DeprecationWarning:flask_sqlalchemy.*",
+]

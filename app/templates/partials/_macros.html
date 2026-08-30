@@ -1,0 +1,162 @@
+{#
+  Reusable UI fragments, following the "Academic Integrity" design system:
+  pill-shaped status chips, tonal surfaces, 1px outlines.
+#}
+{% from "partials/_icons.html" import icon with context %}
+
+
+{% macro status_pill(status) -%}
+  <span class="pill pill-dot pill-{{ STATUS_COLOURS.get(status, 'secondary') }}">
+    {{ STATUS_LABELS.get(status, status) }}
+  </span>
+{%- endmacro %}
+
+
+{% macro priority_pill(priority) -%}
+  <span class="pill pill-{{ PRIORITY_COLOURS.get(priority, 'secondary') }}">
+    {{ priority }} PRIORITY
+  </span>
+{%- endmacro %}
+
+
+{% macro sla_pill(complaint) -%}
+  {% if complaint.is_overdue %}
+    <span class="pill pill-danger" title="Past its service-level deadline">Overdue</span>
+  {% elif complaint.hours_remaining is not none and complaint.hours_remaining < 12 %}
+    <span class="pill pill-warning">Due in {{ complaint.hours_remaining }}h</span>
+  {% endif %}
+{%- endmacro %}
+
+
+{#
+  Evidence list.
+
+  Each image is fetched from /evidence/<id>, which re-checks permissions on
+  every request -- the stored filesystem path is never exposed.
+#}
+{% macro evidence_list(photos, empty_message='No photos were attached to this complaint.') -%}
+  {% if photos %}
+    {% for photo in photos %}
+      <div class="evidence-item">
+        <a class="evidence-figure" href="#evidence-modal-{{ photo.id }}"
+           data-bs-toggle="modal" data-bs-target="#evidence-modal-{{ photo.id }}"
+           aria-label="View {{ photo.file_name }} full size">
+          <img src="{{ url_for('attachments.view', attachment_id=photo.id) }}"
+               alt="Evidence photo {{ loop.index }}: {{ photo.file_name }}" loading="lazy">
+        </a>
+        <div class="evidence-bar">
+          <span class="evidence-filename">{{ photo.file_name }}</span>
+          <span class="label-sm text-faint d-none d-sm-inline">{{ photo.size_display }}</span>
+          <a class="evidence-download"
+             href="{{ url_for('attachments.view', attachment_id=photo.id) }}"
+             download="{{ photo.file_name }}"
+             aria-label="Download {{ photo.file_name }}">
+            {{ icon('download', 18) }}
+          </a>
+        </div>
+      </div>
+
+      <div class="modal fade" id="evidence-modal-{{ photo.id }}" tabindex="-1"
+           aria-labelledby="evidence-label-{{ photo.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="evidence-label-{{ photo.id }}">{{ photo.file_name }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+              <img src="{{ url_for('attachments.view', attachment_id=photo.id) }}"
+                   alt="{{ photo.file_name }}" class="img-fluid rounded">
+            </div>
+            <div class="modal-footer justify-content-between body-sm text-muted">
+              <span>{{ photo.size_display }} &middot; {{ photo.file_type }}
+                    &middot; uploaded {{ photo.uploaded_at|since }}</span>
+              <a href="{{ url_for('attachments.view', attachment_id=photo.id) }}"
+                 class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">
+                Open full size
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state py-4">
+      <div class="empty-icon">{{ icon('image', 26) }}</div>
+      <p class="mb-0">{{ empty_message }}</p>
+    </div>
+  {% endif %}
+{%- endmacro %}
+
+
+{# One row of a key/value detail list, with a leading icon. #}
+{% macro detail_row(icon_name, label, value, empty=false) -%}
+  <div class="detail-row">
+    <span class="detail-key">{{ icon(icon_name, 16) }} {{ label }}</span>
+    <span class="detail-value {{ 'is-empty' if empty }}">{{ value }}</span>
+  </div>
+{%- endmacro %}
+
+
+{# Summary tile used on the dashboards. #}
+{% macro stat_card(label, value, tint='secondary', icon_name='list', href=none) -%}
+  <div class="col-6 col-lg-3">
+    <{{ 'a' if href else 'div' }} class="stat-card" {% if href %}href="{{ href }}"{% endif %}>
+      <div class="stat-top">
+        <span class="stat-value">{{ value }}</span>
+        <span class="stat-chip tint-{{ tint }}">{{ icon(icon_name, 18) }}</span>
+      </div>
+      <div class="stat-label">{{ label }}</div>
+    </{{ 'a' if href else 'div' }}>
+  </div>
+{%- endmacro %}
+
+
+{# One row in a complaint table. #}
+{% macro complaint_row(complaint, show_student=false, show_staff=true) -%}
+  <tr class="{{ 'row-urgent' if complaint.priority == 'URGENT' else ('row-high' if complaint.priority == 'HIGH') }}">
+    <td class="text-nowrap">
+      <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+         class="complaint-code">{{ complaint.code }}</a>
+    </td>
+    <td>
+      <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+         class="complaint-title">{{ complaint.title }}</a>
+      {% if complaint.attachments %}
+        <span class="photo-count" title="{{ complaint.attachments|length }} photo(s) attached">
+          {{ icon('image', 12) }} {{ complaint.attachments|length }}
+        </span>
+      {% endif %}
+    </td>
+    <td>{{ complaint.category.name }}</td>
+    <td>{{ complaint.location.name }}</td>
+    {% if show_student %}
+      <td>{{ complaint.student.name }}</td>
+    {% endif %}
+    {% if show_staff %}
+      <td>
+        {% if complaint.assigned_staff %}
+          {{ complaint.assigned_staff.name }}
+        {% else %}
+          <span class="text-faint fst-italic">Not Assigned</span>
+        {% endif %}
+      </td>
+    {% endif %}
+    <td>{{ priority_pill(complaint.priority) }}</td>
+    <td>{{ status_pill(complaint.status) }} {{ sla_pill(complaint) }}</td>
+    <td class="text-nowrap text-muted">{{ complaint.created_at|since }}</td>
+  </tr>
+{%- endmacro %}
+
+
+{# Consistent empty state. #}
+{% macro empty_state(icon_name, message, hint=none, action_url=none, action_label=none) -%}
+  <div class="empty-state">
+    <div class="empty-icon">{{ icon(icon_name, 26) }}</div>
+    <p>{{ message }}</p>
+    {% if hint %}<p class="empty-hint">{{ hint }}</p>{% endif %}
+    {% if action_url %}
+      <a href="{{ action_url }}" class="btn btn-primary mt-3">{{ action_label }}</a>
+    {% endif %}
+  </div>
+{%- endmacro %}

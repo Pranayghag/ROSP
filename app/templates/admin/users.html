@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Users</h1>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Name</th><th>Email</th><th>Role</th><th>Department</th>
+          <th>Roll No</th><th>Filed</th><th>Assigned</th><th>Joined</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td class="fw-semibold">{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+              <span class="pill pill-{{ 'danger' if user.is_admin else ('info' if user.is_staff else 'secondary') }}">
+                {{ user.role }}
+              </span>
+            </td>
+            <td>{{ user.department or '--' }}</td>
+            <td>{{ user.roll_no or '--' }}</td>
+            <td>{{ user.complaints|length }}</td>
+            <td>{{ user.assigned_complaints|length }}</td>
+            <td class="text-muted">{{ user.created_at|datetime('%d %b %Y') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">{{ icon('user-plus', 20) }} Creating staff and admin accounts</div>
+  <div class="card-body">
+    <p class="body-sm">
+      Self-registration always creates a student account. To add a staff member
+      or another administrator, use the Flask shell:
+    </p>
+    <pre class="mb-0 p-3" style="background: var(--surface-low); border-radius: var(--radius-lg); font-size: 13px;"><code>flask shell
+&gt;&gt;&gt; from app.extensions import db
+&gt;&gt;&gt; from app.models import User
+&gt;&gt;&gt; u = User(name="Name", email="staff@rosp.edu", role="staff", department="Electrical")
+&gt;&gt;&gt; u.set_password("ChangeMe@123")
+&gt;&gt;&gt; db.session.add(u); db.session.commit()</code></pre>
+  </div>
+</div>
+{% endblock %}

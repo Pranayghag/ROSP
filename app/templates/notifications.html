@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import empty_state with context %}
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Notifications</h1>
+  {% if notifications %}
+    <form method="post" action="{{ url_for('main.mark_notifications_read') }}" class="ms-auto">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-secondary btn-sm">
+        {{ icon('check', 16) }} Mark all as read
+      </button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  {% if notifications %}
+    <div class="list-group list-group-flush">
+      {% for item in notifications %}
+        <div class="list-group-item d-flex align-items-start gap-3"
+             {% if not item.is_read %}style="border-left: 3px solid var(--primary);"{% endif %}>
+          <span class="stat-chip tint-{{ 'primary' if not item.is_read else 'secondary' }}"
+                style="width: 30px; height: 30px;">{{ icon('bell', 15) }}</span>
+          <div class="flex-grow-1">
+            {% if item.complaint_id %}
+              <a href="{{ url_for('complaints.detail', complaint_id=item.complaint_id) }}"
+                 class="complaint-title">{{ item.message }}</a>
+            {% else %}
+              {{ item.message }}
+            {% endif %}
+            <div class="body-sm text-muted mt-1">{{ item.created_at|since }}</div>
+          </div>
+          {% if not item.is_read %}
+            <span class="pill pill-primary">New</span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {{ empty_state('bell', 'You have no notifications yet.',
+                   'You will be told here when a complaint of yours changes hands.') }}
+  {% endif %}
+</div>
+{% endblock %}

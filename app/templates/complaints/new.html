@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Submit New Complaint{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 800px;">
+
+  <div class="page-head">
+    <div>
+      <h1>Submit New Complaint</h1>
+      <p class="page-sub">
+        Describe the problem and attach photos as evidence. Complaints are
+        reviewed by an administrator and assigned to the right staff member.
+      </p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" novalidate id="complaint-form"
+        class="card">
+    {{ form.hidden_tag() }}
+
+    <div class="card-body d-flex flex-column" style="gap: 32px;">
+
+      <div class="row g-4">
+        {# --- Title (full width) --- #}
+        <div class="col-12">
+          {{ form.title.label(class="form-label d-block") }}
+          {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""),
+                        placeholder="Briefly describe the issue...") }}
+          {% for error in form.title.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        {# --- Category --- #}
+        <div class="col-md-6">
+          {{ form.category_id.label(class="form-label d-block") }}
+          {{ form.category_id(class="form-select" + (" is-invalid" if form.category_id.errors else "")) }}
+          {% for error in form.category_id.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+          <div class="suggestion-hint d-none" id="category-hint"></div>
+        </div>
+
+        {# --- Location --- #}
+        <div class="col-md-6">
+          {{ form.location_id.label(class="form-label d-block") }}
+          {{ form.location_id(class="form-select" + (" is-invalid" if form.location_id.errors else "")) }}
+          {% for error in form.location_id.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# --- Priority as a segmented pill control --------------------------- #}
+      <div>
+        <span class="form-label d-block">Priority</span>
+        <div class="segmented">
+          {% for value, label in form.priority.choices %}
+            <label>
+              <input type="radio" name="priority" value="{{ value }}" id="priority-{{ value }}"
+                     {{ 'checked' if form.priority.data == value }}>
+              <span class="segment {{ 'segment-danger' if value in ('HIGH', 'URGENT') }}">
+                <span class="seg-dot seg-{{ value|lower }}"></span>{{ label }}
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+        {% for error in form.priority.errors %}
+          <div class="invalid-feedback d-block">{{ error }}</div>
+        {% endfor %}
+        <div class="suggestion-hint d-none" id="priority-hint"></div>
+      </div>
+
+      {# --- Description --- #}
+      <div>
+        {{ form.description.label(class="form-label d-block") }}
+        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""),
+                            rows=4,
+                            placeholder="Provide detailed information about the issue...") }}
+        {% for error in form.description.errors %}
+          <div class="invalid-feedback d-block">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      {# ------------------------------------------------------------------
+         Evidence upload.
+         Previews and removal are client-side conveniences only. Every file is
+         re-validated on the server before it is stored.
+      ------------------------------------------------------------------- #}
+      <div>
+        <span class="form-label d-block">Evidence Upload</span>
+
+        <div class="dropzone" id="dropzone" role="button" tabindex="0"
+             aria-label="Choose photos, or drag and drop them here">
+          <div class="dropzone-icon">{{ icon('cloud-up', 48) }}</div>
+          <div class="dropzone-action">+ Choose Photos</div>
+          <p class="dropzone-hint">or drag and drop here</p>
+          <p class="dropzone-formats">
+            Maximum {{ max_photos }} images &middot; up to {{ max_photo_mb }} MB each
+            &middot; Supported: JPG, JPEG, PNG, WEBP
+          </p>
+        </div>
+
+        {{ form.photos(class="d-none", id="photos",
+                       accept="image/jpeg,image/png,image/webp", multiple=true) }}
+
+        {# Live previews are injected here by evidence-upload.js #}
+        <div class="preview-strip d-none" id="preview-grid"></div>
+
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <span class="label-sm text-faint" id="photo-counter">0 of {{ max_photos }} selected</span>
+          <button type="button" class="btn btn-ghost btn-sm ms-auto d-none" id="clear-photos">
+            {{ icon('trash', 14) }} Remove all
+          </button>
+        </div>
+
+        <div class="alert alert-danger mt-3 d-none" id="photo-errors" role="alert"></div>
+
+        {% for error in form.photos.errors %}
+          <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endfor %}
+
+        <noscript>
+          <p class="form-text text-warning mb-0 mt-2">
+            Previews need JavaScript. You can still attach photos with the file
+            picker -- they will be checked when you submit.
+          </p>
+        </noscript>
+      </div>
+
+    </div>
+
+    {# --- Submit ------------------------------------------------------- #}
+    <div class="card-body border-top d-flex justify-content-end gap-2"
+         style="border-color: var(--outline-variant) !important;">
+      <a href="{{ url_for('main.dashboard') }}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        Submit Complaint {{ icon('send', 18) }}
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.ROSP_UPLOAD_CONFIG = {
+    maxFiles: {{ max_photos|tojson }},
+    maxFileSizeMb: {{ max_photo_mb|tojson }},
+    allowedTypes: ["image/jpeg", "image/png", "image/webp"],
+    allowedExtensions: [".jpg", ".jpeg", ".png", ".webp"],
+    suggestUrl: {{ url_for('complaints.suggest')|tojson }},
+    csrfToken: {{ csrf_token()|tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='js/evidence-upload.js') }}"></script>
+{% endblock %}

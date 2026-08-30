@@ -1,0 +1,170 @@
+{#
+  Base layout. Bootstrap is vendored under static/vendor so the application
+  runs with no internet connection -- useful for offline demos and labs.
+#}
+{% from "partials/_icons.html" import icon with context %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ROSP{% endblock %} &middot; ROSP</title>
+
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128221;</text></svg>">
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+{% set ep = request.endpoint or '' %}
+
+<nav class="navbar navbar-expand-lg rosp-navbar sticky-top">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('main.index') }}">
+      <span class="rosp-brand-mark">RS</span>
+      <span>
+        ROSP
+        <span class="rosp-brand-sub d-none d-sm-inline">Campus Complaints</span>
+      </span>
+    </a>
+
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
+            data-bs-target="#navmenu" aria-controls="navmenu"
+            aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navmenu">
+      {% if current_user.is_authenticated %}
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if ep in ('main.dashboard', 'admin.dashboard') }}"
+               href="{{ url_for('main.dashboard') }}">
+              {{ icon('dashboard') }} Dashboard
+            </a>
+          </li>
+
+          {% if current_user.is_student %}
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if ep == 'complaints.new' }}"
+                 href="{{ url_for('complaints.new') }}">
+                {{ icon('plus') }} New Complaint
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if ep == 'complaints.index' }}"
+                 href="{{ url_for('complaints.index') }}">
+                {{ icon('list') }} My Complaints
+              </a>
+            </li>
+          {% elif current_user.is_staff %}
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if ep == 'complaints.index' }}"
+                 href="{{ url_for('complaints.index') }}">
+                {{ icon('list') }} Assigned to Me
+              </a>
+            </li>
+          {% endif %}
+
+          {% if current_user.is_admin %}
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if ep == 'admin.queue' }}"
+                 href="{{ url_for('admin.queue') }}">
+                {{ icon('inbox') }} All Complaints
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if ep == 'admin.analytics' }}"
+                 href="{{ url_for('admin.analytics') }}">
+                {{ icon('chart') }} Analytics
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if ep == 'admin.users' }}"
+                 href="{{ url_for('admin.users') }}">
+                {{ icon('users') }} Users
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+          <li class="nav-item">
+            <a class="nav-link position-relative {{ 'active' if ep == 'main.notification_list' }}"
+               href="{{ url_for('main.notification_list') }}"
+               aria-label="Notifications{{ ' (%d unread)'|format(unread_notifications) if unread_notifications }}">
+              {{ icon('bell', 18) }}
+              <span class="d-lg-none">Notifications</span>
+              {% if unread_notifications %}
+                <span class="notif-dot">{{ unread_notifications if unread_notifications < 10 else '9+' }}</span>
+              {% endif %}
+            </a>
+          </li>
+
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button"
+               data-bs-toggle="dropdown" aria-expanded="false">
+              {{ icon('user', 18) }} {{ current_user.name.split()[0] }}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <div class="px-3 py-2">
+                  <div class="fw-semibold small">{{ current_user.name }}</div>
+                  <div class="small text-muted">{{ current_user.email }}</div>
+                  <span class="pill pill-secondary mt-2">{{ current_user.role|title }}</span>
+                </div>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                  {{ icon('logout', 16) }} Sign out
+                </a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      {% else %}
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.login') }}">Sign in</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-primary btn-sm" href="{{ url_for('auth.register') }}">Register</a>
+          </li>
+        </ul>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<main class="container py-4 flex-grow-1">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+          <span class="pt-1">
+            {{ icon('check' if category == 'success' else ('alert' if category in ('danger', 'warning') else 'bell')) }}
+          </span>
+          <div class="flex-grow-1">{{ message }}</div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="rosp-footer py-3 mt-auto">
+  <div class="container d-flex flex-wrap justify-content-between gap-2">
+    <span>ROSP &middot; Campus Complaint Management System</span>
+    <span>Open source (MIT) &middot; {{ current_year }}</span>
+  </div>
+</footer>
+
+<script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

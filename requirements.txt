@@ -1,0 +1,23 @@
+# ROSP runtime dependencies
+Flask>=3.1
+Flask-SQLAlchemy>=3.1
+Flask-Login>=0.6.3
+Flask-WTF>=1.2
+WTForms>=3.2
+SQLAlchemy>=2.0
+
+# MySQL driver. PyMySQL is pure Python, so it installs without a compiler on
+# Windows/macOS/Linux alike; `cryptography` is required for MySQL 8's default
+# caching_sha2_password authentication.
+PyMySQL>=1.1
+cryptography>=42.0
+
+# Configuration
+python-dotenv>=1.0
+
+# Image handling: used to verify that an uploaded file really decodes as an
+# image, and to strip EXIF metadata before the file is written to disk.
+Pillow>=11.0
+
+# Email syntax validation for registration forms
+email-validator>=2.1

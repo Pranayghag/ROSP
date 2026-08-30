@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 640px;">
+  <div class="card">
+    <div class="card-body p-4">
+      <h1 class="mb-1">Create a student account</h1>
+      <p class="body-sm text-muted mb-4">
+        Staff and administrator accounts are created by an administrator.
+      </p>
+
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+          {{ form.name.label(class="form-label d-block") }}
+          {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""),
+                       autofocus=true, placeholder="Your full name") }}
+          {% for error in form.name.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          {{ form.email.label(class="form-label d-block") }}
+          {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""),
+                        autocomplete="email", placeholder="you@rosp.edu") }}
+          {% for error in form.email.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="row g-3">
+          <div class="col-sm-6">
+            {{ form.roll_no.label(class="form-label d-block") }}
+            {{ form.roll_no(class="form-control" + (" is-invalid" if form.roll_no.errors else ""),
+                            placeholder="e.g. CS21042") }}
+            {% for error in form.roll_no.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-sm-6">
+            {{ form.department.label(class="form-label d-block") }}
+            {{ form.department(class="form-control" + (" is-invalid" if form.department.errors else ""),
+                               placeholder="e.g. Computer Science") }}
+            {% for error in form.department.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-sm-6">
+            {{ form.password.label(class="form-label d-block") }}
+            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""),
+                             autocomplete="new-password") }}
+            {% for error in form.password.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-sm-6">
+            {{ form.confirm.label(class="form-label d-block") }}
+            {{ form.confirm(class="form-control" + (" is-invalid" if form.confirm.errors else ""),
+                            autocomplete="new-password") }}
+            {% for error in form.confirm.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-4">Create Account</button>
+      </form>
+
+      <p class="text-center body-sm text-muted mt-4 mb-0">
+        Already registered? <a href="{{ url_for('auth.login') }}">Sign in</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row align-items-center g-5 py-4">
+  <div class="col-lg-7">
+    <h1 style="font-size: 36px; font-weight: 700; line-height: 44px; letter-spacing: -0.02em;">
+      Campus complaints, tracked properly.
+    </h1>
+    <p class="text-muted mt-3" style="font-size: 18px; line-height: 28px;">
+      Classroom, electrical, water, Wi-Fi and facility problems usually get
+      reported verbally or lost in group chats. ROSP gives every complaint a
+      reference number, photographic evidence, an assigned staff member and a
+      status you can follow to completion.
+    </p>
+    <div class="d-flex flex-wrap gap-2 mt-4">
+      <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+        Register as student
+      </a>
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-lg">
+        Sign in
+      </a>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">{{ icon('activity', 20) }} How it works</div>
+      <div class="card-body">
+        <div class="auth-flow mt-0">
+          <div class="auth-flow-step">
+            <span class="auth-flow-num">1</span>
+            Student files a complaint with photo evidence
+          </div>
+          <div class="auth-flow-step">
+            <span class="auth-flow-num">2</span>
+            Admin reviews it and assigns a staff member
+          </div>
+          <div class="auth-flow-step">
+            <span class="auth-flow-num">3</span>
+            Staff resolve it and upload proof of the repair
+          </div>
+          <div class="auth-flow-step">
+            <span class="auth-flow-num">4</span>
+            Student confirms the fix and the complaint closes
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-2">
+  {% for icon_name, heading, body in [
+      ('image', 'Evidence, not arguments',
+       'Attach up to ' ~ max_photos ~ ' photos to every complaint. Images are validated on the server and only ever shown to the people involved.'),
+      ('clock', 'Nothing gets forgotten',
+       'Each category carries a service-level target. Complaints that pass their deadline are flagged and escalated to administrators.'),
+      ('shield', 'A full audit trail',
+       'Every assignment, status change and note is recorded with a name and a timestamp, so the history of a complaint is never in dispute.')] %}
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <span class="stat-chip tint-primary mb-3">{{ icon(icon_name, 18) }}</span>
+          <h2 style="font-size: 16px;">{{ heading }}</h2>
+          <p class="body-sm text-muted mb-0">{{ body }}</p>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

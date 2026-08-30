@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import status_pill, priority_pill, sla_pill,
+                                       empty_state with context %}
+{% block title %}All Complaints{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>All Complaints</h1>
+</div>
+
+<form method="get" class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label d-block" for="status">Status</label>
+        <select class="form-select" id="status" name="status">
+          <option value="">Any</option>
+          {% for status in Status.ALL %}
+            <option value="{{ status }}" {{ 'selected' if status_filter == status }}>
+              {{ STATUS_LABELS.get(status, status) }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label d-block" for="priority">Priority</label>
+        <select class="form-select" id="priority" name="priority">
+          <option value="">Any</option>
+          {% for priority in Priority.ALL %}
+            <option value="{{ priority }}" {{ 'selected' if priority_filter == priority }}>
+              {{ priority|title }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label d-block" for="category">Category</label>
+        <select class="form-select" id="category" name="category">
+          <option value="">Any</option>
+          {% for category in categories %}
+            <option value="{{ category.id }}" {{ 'selected' if category_filter == category.id }}>
+              {{ category.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" value="1" id="unassigned"
+                 name="unassigned" {{ 'checked' if unassigned_only }}>
+          <label class="form-check-label body-sm" for="unassigned">Unassigned only</label>
+        </div>
+      </div>
+
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-primary">{{ icon('filter', 16) }}</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if complaints %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Code</th><th>Title</th><th>Category</th><th>Location</th>
+            <th>Student</th><th>Assigned</th><th>Priority</th><th>Status</th>
+            <th>Filed</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in complaints %}
+            <tr class="{{ 'row-urgent' if complaint.priority == 'URGENT' else ('row-high' if complaint.priority == 'HIGH') }}">
+              <td class="text-nowrap">
+                <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+                   class="complaint-code">{{ complaint.code }}</a>
+              </td>
+              <td>
+                <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+                   class="complaint-title">{{ complaint.title }}</a>
+                {% if complaint.attachments %}
+                  <span class="photo-count">
+                    {{ icon('image', 12) }} {{ complaint.attachments|length }}
+                  </span>
+                {% endif %}
+              </td>
+              <td>{{ complaint.category.name }}</td>
+              <td>{{ complaint.location.name }}</td>
+              <td>{{ complaint.student.name }}</td>
+              <td>
+                {% if complaint.assigned_staff %}
+                  {{ complaint.assigned_staff.name }}
+                {% else %}
+                  <span class="text-faint fst-italic">Not Assigned</span>
+                {% endif %}
+              </td>
+              <td>{{ priority_pill(complaint.priority) }}</td>
+              <td>{{ status_pill(complaint.status) }} {{ sla_pill(complaint) }}</td>
+              <td class="text-nowrap text-muted">{{ complaint.created_at|since }}</td>
+              <td class="text-nowrap">
+                <a href="{{ url_for('admin.assign_complaint', complaint_id=complaint.id) }}"
+                   class="btn btn-outline-secondary btn-sm">
+                  {{ 'Reassign' if complaint.assigned_staff else 'Assign' }}
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="body-sm text-muted mt-2 mb-0">{{ complaints|length }} complaint(s).</p>
+{% else %}
+  <div class="card">
+    {{ empty_state('search', 'No complaints match these filters.',
+                   'Try widening the status or category filter.') }}
+  </div>
+{% endif %}
+{% endblock %}

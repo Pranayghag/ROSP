@@ -1,0 +1,143 @@
+{#
+  Reports and graphs (Phase 15).
+
+  Charts are plain CSS bars and one inline SVG polyline. No charting library is
+  loaded, so this page renders identically with no internet connection.
+#}
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import stat_card with context %}
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Analytics</h1>
+</div>
+
+<div class="row g-3 mb-4">
+  {{ stat_card('Total complaints', total, 'primary', 'inbox') }}
+  {{ stat_card('Resolution rate', resolution_rate ~ '%', 'success', 'check') }}
+  {{ stat_card('Avg. resolution',
+               (avg_resolution_hours ~ 'h') if avg_resolution_hours is not none else '--',
+               'info', 'clock') }}
+  {{ stat_card('Currently overdue', overdue_count, 'danger', 'alert') }}
+</div>
+
+<div class="row g-4">
+
+  {# --- Complaints per day ------------------------------------------------ #}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        {{ icon('chart', 20) }} Complaints filed (last 14 days)
+      </div>
+      <div class="card-body">
+        {% set peak = daily | map(attribute='count') | max %}
+        {% set peak = peak if peak and peak > 0 else 1 %}
+        <div class="d-flex align-items-end gap-1 chart-columns">
+          {% for day in daily %}
+            <div class="flex-fill text-center">
+              <div class="chart-bar-wrapper" title="{{ day.date }}: {{ day.count }} complaint(s)">
+                <div class="chart-bar"
+                     style="height: {{ (day.count / peak * 100) | round | int }}%;">
+                  {% if day.count %}<span class="chart-bar-value">{{ day.count }}</span>{% endif %}
+                </div>
+              </div>
+              <div class="chart-axis-label">{{ day.date.strftime('%d/%m') }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# --- By status --------------------------------------------------------- #}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">{{ icon('activity', 20) }} By status</div>
+      <div class="card-body">
+        {% set status_peak = by_status.values() | max if by_status else 1 %}
+        {% set status_peak = status_peak if status_peak and status_peak > 0 else 1 %}
+        {% for status in Status.ALL %}
+          {% set count = by_status.get(status, 0) %}
+          <div class="mb-2">
+            <div class="d-flex justify-content-between small">
+              <span>{{ STATUS_LABELS.get(status, status) }}</span>
+              <span class="text-muted">{{ count }}</span>
+            </div>
+            <div class="progress" style="height: 10px;" role="progressbar"
+                 aria-label="{{ STATUS_LABELS.get(status, status) }}"
+                 aria-valuenow="{{ count }}" aria-valuemin="0" aria-valuemax="{{ status_peak }}">
+              <div class="progress-bar bar-{{ STATUS_COLOURS.get(status, "secondary") }}"
+                   style="width: {{ (count / status_peak * 100) | round | int }}%;"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# --- By priority ------------------------------------------------------- #}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">{{ icon('zap', 20) }} By priority</div>
+      <div class="card-body">
+        {% set priority_peak = by_priority.values() | max if by_priority else 1 %}
+        {% set priority_peak = priority_peak if priority_peak and priority_peak > 0 else 1 %}
+        {% for priority in Priority.ALL %}
+          {% set count = by_priority.get(priority, 0) %}
+          <div class="mb-2">
+            <div class="d-flex justify-content-between small">
+              <span>{{ priority|title }}</span>
+              <span class="text-muted">{{ count }}</span>
+            </div>
+            <div class="progress" style="height: 10px;" role="progressbar"
+                 aria-label="{{ priority|title }}"
+                 aria-valuenow="{{ count }}" aria-valuemin="0" aria-valuemax="{{ priority_peak }}">
+              <div class="progress-bar bar-{{ PRIORITY_COLOURS.get(priority, "secondary") }}"
+                   style="width: {{ (count / priority_peak * 100) | round | int }}%;"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# --- By category ------------------------------------------------------- #}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">{{ icon('tag', 20) }} By category</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr><th>Category</th><th style="width: 60%;">Share</th><th class="text-end">Count</th></tr>
+          </thead>
+          <tbody>
+            {% set category_peak = (by_category | map(attribute=1) | max) if by_category else 1 %}
+            {% set category_peak = category_peak if category_peak and category_peak > 0 else 1 %}
+            {% for name, count in by_category %}
+              <tr>
+                <td class="small">{{ name }}</td>
+                <td>
+                  <div class="progress" style="height: 8px;" role="progressbar"
+                       aria-label="{{ name }}" aria-valuenow="{{ count }}"
+                       aria-valuemin="0" aria-valuemax="{{ category_peak }}">
+                    <div class="progress-bar bar-primary"
+                         style="width: {{ (count / category_peak * 100) | round | int }}%;"></div>
+                  </div>
+                </td>
+                <td class="text-end small">{{ count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="text-muted small mt-4 mb-0">
+  Figures are computed live from the database each time this page is opened.
+</p>
+{% endblock %}

@@ -1,0 +1,56 @@
+{#
+  Inline SVG icons.
+
+  Hand-drawn stroke geometry rather than an icon font or an external library:
+  nothing to download, no extra request, no licence to track, and each icon
+  inherits the surrounding text colour via `currentColor`.
+
+  Usage:  {{ icon('bell') }}   {{ icon('camera', 20) }}
+#}
+
+{% set _ICON_PATHS = {
+  'dashboard': '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  'plus':      '<path d="M12 5v14M5 12h14"/>',
+  'list':      '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  'bell':      '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  'user':      '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'users':     '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'logout':    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  'camera':    '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  'image':     '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+  'upload':    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  'check':     '<path d="M20 6L9 17l-5-5"/>',
+  'clock':     '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  'alert':     '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  'chart':     '<path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/>',
+  'filter':    '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+  'trash':     '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+  'x':         '<path d="M18 6L6 18M6 6l12 12"/>',
+  'arrow-left':'<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  'shield':    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
+  'sun':       '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  'moon':      '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  'pin':       '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  'tag':       '<path d="M20.6 13.4L12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/>',
+  'inbox':     '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  'file':      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  'search':    '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
+  'refresh':   '<path d="M23 4v6h-6M1 20v-6h6"/><path d="M20.5 9a9 9 0 0 0-14.9-3.4L1 10M23 14l-4.6 4.4A9 9 0 0 1 3.5 15"/>',
+  'zap':       '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+  'eye':       '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  'download':  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  'cloud-up':  '<path d="M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 3 14.9"/><path d="M12 12v9M8 16l4-4 4 4"/>',
+  'send':      '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+  'calendar':  '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  'chevron':   '<path d="M6 9l6 6 6-6"/>',
+  'note':      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  'activity':  '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>'
+} %}
+
+{% macro icon(name, size=16, extra_class='') -%}
+  <svg class="rosp-icon {{ extra_class }}" width="{{ size }}" height="{{ size }}"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+       focusable="false">{{ _ICON_PATHS.get(name, '')|safe }}</svg>
+{%- endmacro %}

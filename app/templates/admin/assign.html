@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import status_pill, priority_pill, evidence_list with context %}
+{% block title %}Assign {{ complaint.code }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 800px;">
+
+  <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+     class="btn btn-ghost btn-sm ps-0 mb-2">
+    {{ icon('arrow-left', 16) }} Back to complaint
+  </a>
+
+  <div class="page-head">
+    <h1>Assign {{ complaint.code }}</h1>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="mb-2">{{ complaint.title }}</h2>
+      <p class="body-sm text-muted mb-3">
+        {{ complaint.category.name }} &middot; {{ complaint.location.name }}
+        &middot; filed by {{ complaint.student.name }} {{ complaint.created_at|since }}
+      </p>
+
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        {{ status_pill(complaint.status) }}
+        {{ priority_pill(complaint.priority) }}
+      </div>
+
+      <p class="description-body mb-0">{{ complaint.description }}</p>
+    </div>
+  </div>
+
+  {% if complaint.evidence %}
+    <div class="card mb-4">
+      <div class="card-header">
+        {{ icon('image', 20) }} Evidence
+        <span class="file-count">{{ complaint.evidence|length }} File(s)</span>
+      </div>
+      <div class="card-body">
+        {{ evidence_list(complaint.evidence) }}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-header">{{ icon('user-plus', 20) }} Assign to staff</div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+          {{ form.staff_id.label(class="form-label d-block") }}
+          {{ form.staff_id(class="form-select") }}
+          <p class="form-text mt-2">
+            The staff member will be notified, and the student will see who is
+            handling the complaint.
+          </p>
+        </div>
+
+        <div class="mb-4">
+          {{ form.note.label(class="form-label d-block") }}
+          {{ form.note(class="form-control",
+                       placeholder="e.g. Please check before Monday's lecture") }}
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end">
+          <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+             class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            {{ icon('check', 16) }} Assign
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Sign In{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+
+  {# --- Left: what the system is for (desktop only) --- #}
+  <div class="auth-hero">
+    <h2>Campus complaints,<br>tracked properly.</h2>
+    <p class="text-muted" style="font-size: 18px; line-height: 28px;">
+      Every complaint gets a reference number, photographic evidence, an
+      assigned staff member, and a status you can follow to completion.
+    </p>
+
+    <div class="auth-flow">
+      <div class="auth-flow-step">
+        <span class="auth-flow-num">1</span>
+        Student files a complaint with photo evidence
+      </div>
+      <div class="auth-flow-step">
+        <span class="auth-flow-num">2</span>
+        Admin reviews it and assigns a staff member
+      </div>
+      <div class="auth-flow-step">
+        <span class="auth-flow-num">3</span>
+        Staff resolve it and upload proof of the repair
+      </div>
+      <div class="auth-flow-step">
+        <span class="auth-flow-num">4</span>
+        Student confirms the fix and the complaint closes
+      </div>
+    </div>
+  </div>
+
+  {# --- Right: the form --- #}
+  <div>
+    <div class="card">
+      <div class="card-body p-4">
+        <h1 class="mb-1">Sign in to ROSP</h1>
+        <p class="body-sm text-muted mb-4">Use your campus email address.</p>
+
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+
+          <div class="mb-3">
+            {{ form.email.label(class="form-label d-block") }}
+            {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""),
+                          autocomplete="email", autofocus=true,
+                          placeholder="you@rosp.edu") }}
+            {% for error in form.email.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="mb-4">
+            {{ form.password.label(class="form-label d-block") }}
+            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""),
+                             autocomplete="current-password") }}
+            {% for error in form.password.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            Sign In
+          </button>
+        </form>
+
+        <p class="text-center body-sm text-muted mt-4 mb-0">
+          No account yet? <a href="{{ url_for('auth.register') }}">Register as a student</a>
+        </p>
+      </div>
+    </div>
+
+    {# Visible only in development, so a reviewer can sign in immediately. #}
+    {% if config.DEBUG %}
+      <div class="card mt-3">
+        <div class="card-body py-3">
+          <div class="label-md mb-2">DEMO ACCOUNTS</div>
+          {% for email, password, role in [
+              ('admin@rosp.edu', 'Admin@123', 'Admin'),
+              ('ramesh@rosp.edu', 'Staff@123', 'Staff'),
+              ('aman@rosp.edu', 'Student@123', 'Student')] %}
+            <div class="d-flex align-items-center gap-2 body-sm py-1">
+              <span class="pill pill-secondary">{{ role }}</span>
+              <span class="text-muted">{{ email }}</span>
+              <code class="ms-auto">{{ password }}</code>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

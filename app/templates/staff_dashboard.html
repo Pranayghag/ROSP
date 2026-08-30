@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import stat_card, complaint_row, empty_state with context %}
+{% block title %}Staff Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Hello, {{ current_user.name.split()[0] }}</h1>
+    <p class="page-sub">
+      Work assigned to you{% if current_user.department %} &middot; {{ current_user.department }}{% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  {{ stat_card('Assigned to me', counts.TOTAL, 'primary', 'list', url_for('complaints.index')) }}
+  {{ stat_card('Open', counts.OPEN, 'info', 'clock') }}
+  {{ stat_card('In progress', counts[Status.IN_PROGRESS], 'warning', 'zap') }}
+  {{ stat_card('Overdue', overdue|length, 'danger', 'alert') }}
+</div>
+
+{% if overdue %}
+  <div class="alert alert-danger d-flex gap-3 mb-4">
+    <span class="pt-1">{{ icon('alert', 18) }}</span>
+    <div>
+      <div class="fw-semibold mb-1">Past their deadline</div>
+      <ul class="mb-0 ps-3">
+        {% for complaint in overdue %}
+          <li>
+            <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}">
+              {{ complaint.code }} - {{ complaint.title }}
+            </a>
+            <span class="body-sm">({{ complaint.hours_remaining|abs }}h overdue)</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    {{ icon('zap', 20) }} Needs your attention
+    <a href="{{ url_for('complaints.index') }}" class="file-count text-decoration-none">
+      View all assigned
+    </a>
+  </div>
+
+  {% if awaiting_me %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Code</th><th>Title</th><th>Category</th><th>Location</th>
+            <th>Student</th><th>Priority</th><th>Status</th><th>Filed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in awaiting_me %}
+            {{ complaint_row(complaint, show_student=true, show_staff=false) }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ empty_state('check', 'Nothing is waiting on you right now.',
+                   'Complaints assigned to you will appear here.') }}
+  {% endif %}
+</div>
+{% endblock %}

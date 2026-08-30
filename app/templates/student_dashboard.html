@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import stat_card, complaint_row, empty_state with context %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Hello, {{ current_user.name.split()[0] }}</h1>
+    <p class="page-sub">Here is where your complaints stand.</p>
+  </div>
+  <a href="{{ url_for('complaints.new') }}" class="btn btn-primary ms-auto">
+    {{ icon('plus', 18) }} New Complaint
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  {{ stat_card('Total filed', counts.TOTAL, 'primary', 'list', url_for('complaints.index')) }}
+  {{ stat_card('Still open', counts.OPEN, 'info', 'clock') }}
+  {{ stat_card('Awaiting your check', counts[Status.STUDENT_VERIFICATION], 'warning', 'eye') }}
+  {{ stat_card('Closed', counts[Status.CLOSED], 'success', 'check') }}
+</div>
+
+{% if awaiting_me %}
+  <div class="alert alert-warning d-flex gap-3 mb-4">
+    <span class="pt-1">{{ icon('alert', 18) }}</span>
+    <div>
+      <div class="fw-semibold mb-1">Action needed from you</div>
+      <p class="body-sm mb-2">
+        Staff have marked these as resolved. Please confirm whether the problem
+        is actually fixed so the complaint can be closed.
+      </p>
+      <ul class="mb-0 ps-3">
+        {% for complaint in awaiting_me %}
+          <li>
+            <a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}">
+              {{ complaint.code }} - {{ complaint.title }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    {{ icon('list', 20) }} Recent complaints
+    <a href="{{ url_for('complaints.index') }}" class="file-count text-decoration-none">View all</a>
+  </div>
+
+  {% if recent %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Code</th><th>Title</th><th>Category</th><th>Location</th>
+            <th>Assigned</th><th>Priority</th><th>Status</th><th>Filed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in recent %}
+            {{ complaint_row(complaint) }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ empty_state('inbox', 'You have not filed any complaints yet.',
+                   'Attach photos as evidence so staff can see the problem straight away.',
+                   url_for('complaints.new'), 'File your first complaint') }}
+  {% endif %}
+</div>
+{% endblock %}
