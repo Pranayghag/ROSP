@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import stat_card, empty_state with context %}
+{% block title %}Staff Management{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Staff Management</h1>
+    <p class="page-sub">Authorize, suspend and review every staff account.</p>
+  </div>
+  <a href="{{ url_for('admin.staff_new') }}" class="btn btn-primary ms-auto">
+    {{ icon('plus', 18) }} Add New Staff
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  {{ stat_card('All staff', counts.TOTAL, 'primary', 'users',
+               url_for('admin.staff_list')) }}
+  {{ stat_card('Pending', counts[AuthorizationStatus.PENDING], 'warning', 'clock',
+               url_for('admin.staff_list', status=AuthorizationStatus.PENDING)) }}
+  {{ stat_card('Authorized', counts[AuthorizationStatus.AUTHORIZED], 'success', 'check',
+               url_for('admin.staff_list', status=AuthorizationStatus.AUTHORIZED)) }}
+  {{ stat_card('Rejected', counts[AuthorizationStatus.REJECTED], 'danger', 'x',
+               url_for('admin.staff_list', status=AuthorizationStatus.REJECTED)) }}
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+  <a href="{{ url_for('admin.staff_list') }}"
+     class="filter-chip {{ 'active' if not status_filter }}">All</a>
+  {% for status in AuthorizationStatus.ALL %}
+    <a href="{{ url_for('admin.staff_list', status=status) }}"
+       class="filter-chip {{ 'active' if status_filter == status }}">
+      {{ AUTHORIZATION_LABELS.get(status, status) }} ({{ counts[status] }})
+    </a>
+  {% endfor %}
+
+  <form method="get" class="ms-auto d-flex gap-2" style="max-width: 320px;">
+    {% if status_filter %}
+      <input type="hidden" name="status" value="{{ status_filter }}">
+    {% endif %}
+    <input type="search" name="q" value="{{ search }}" class="form-control"
+           placeholder="Search name, email, ID..." aria-label="Search staff">
+    <button type="submit" class="btn btn-outline-secondary">{{ icon('search', 16) }}</button>
+  </form>
+</div>
+
+{% if staff %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>Phone</th><th>Department</th>
+            <th>Designation</th><th>Staff ID</th><th>Role</th>
+            <th>Authorization</th><th>Registered</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in staff %}
+            <tr>
+              <td class="fw-semibold">
+                <a href="{{ url_for('admin.staff_detail', user_id=member.id) }}"
+                   class="complaint-title">{{ member.name }}</a>
+                {% if not member.password_set %}
+                  <span class="photo-count" title="Has not set a password yet">
+                    setup pending
+                  </span>
+                {% endif %}
+              </td>
+              <td>{{ member.email }}</td>
+              <td>{{ member.phone or '--' }}</td>
+              <td>{{ member.department or '--' }}</td>
+              <td>{{ member.designation or '--' }}</td>
+              <td>{{ member.staff_id or '--' }}</td>
+              <td>
+                <span class="pill pill-{{ 'danger' if member.is_admin else 'info' }}">
+                  {{ member.role }}
+                </span>
+              </td>
+              <td>
+                <span class="pill pill-dot pill-{{ AUTHORIZATION_COLOURS.get(member.authorization_status, 'secondary') }}">
+                  {{ AUTHORIZATION_LABELS.get(member.authorization_status, member.authorization_status) }}
+                </span>
+              </td>
+              <td class="text-muted text-nowrap">{{ member.created_at|since }}</td>
+              <td class="text-nowrap">
+                <a href="{{ url_for('admin.staff_detail', user_id=member.id) }}"
+                   class="btn btn-outline-secondary btn-sm">Review</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="body-sm text-muted mt-2 mb-0">{{ staff|length }} account(s).</p>
+{% else %}
+  <div class="card">
+    {{ empty_state('users',
+                   'No staff accounts match this view.',
+                   'Staff appear here once they register, or once you add them.',
+                   url_for('admin.staff_new'), 'Add New Staff') }}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("Your complaint has been marked as resolved") }}
+
+  {{ ui.paragraph("Hello " ~ complaint.student.name ~ ", the staff member
+                   handling your complaint has finished the work and marked it
+                   resolved. Please check it and confirm.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Complaint ID", complaint.code, emphasis=true) }}
+    {{ ui.field("Title", complaint.title) }}
+    {{ ui.field("Location", location_text) }}
+    {{ ui.field("Resolved By", resolved_by) }}
+    {{ ui.field("Resolved On", resolved_on) }}
+    {{ ui.field("Status", ui.pill("AWAITING YOUR VERIFICATION", "pending")) }}
+  {{ ui.details_close() }}
+
+  {% if complaint.resolution_note %}
+    <div style="font-size:12px; font-weight:600; letter-spacing:0.04em;
+                text-transform:uppercase; color:#74777f; margin:18px 0 6px;">
+      What was done
+    </div>
+    <div style="font-size:15px; line-height:23px; color:#111c2c;
+                background-color:#f9f9ff; border:1px solid #e7eeff;
+                border-radius:8px; padding:14px 16px;
+                white-space:pre-line;">{{ complaint.resolution_note }}</div>
+  {% endif %}
+
+  {{ ui.paragraph("Open the complaint to compare the original photo with the
+                   photo of the completed work, then tell us whether the
+                   problem is actually fixed.") }}
+
+  {{ ui.button("Verify Resolution", complaint_url) }}
+
+  {{ ui.note("If the problem is not fixed, choose \"No, problem is not solved\"
+              on that page and say what is still wrong. The complaint will be
+              reopened and sent back to the staff member.") }}
+{% endblock %}

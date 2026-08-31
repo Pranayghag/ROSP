@@ -1,16 +1,16 @@
-# ROSP — Campus Complaint Management System
+# CampusCare — Smart College Complaint & Maintenance Management System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000.svg)](https://flask.palletsprojects.com/)
-[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-113%20passing-brightgreen.svg)](tests/)
 
 Students report campus problems — leaking ceilings, dead projectors, broken
 fans, patchy Wi‑Fi — verbally or in scattered WhatsApp messages. Nothing has a
 reference number, nobody owns it, and there is no way to tell whether it was
 ever fixed.
 
-**ROSP replaces that with a tracked workflow.** A student files a complaint with
+**CampusCare replaces that with a tracked workflow.** A student files a complaint with
 photographic evidence, an administrator assigns it to the right staff member,
 the staff member resolves it and uploads proof of the repair, and the student
 confirms the fix before it closes. Every step is recorded with a name and a
@@ -31,6 +31,7 @@ Student → submits complaint (+ photos) → Admin → assigns → Staff → res
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
 - [How photo evidence is handled](#how-photo-evidence-is-handled)
+- [Accounts and access](#accounts-and-access)
 - [Project structure](#project-structure)
 - [Testing](#testing)
 - [Development notes](#development-notes)
@@ -62,11 +63,22 @@ Student → submits complaint (+ photos) → Admin → assigns → Staff → res
 - Move work through *In Progress* → *Resolved*
 - Upload "after" photos as proof of the completed repair
 
+**Security & accounts**
+- **Two-step verification** for every role: password, then a 6-digit code
+  emailed to the account holder
+- **Staff authorization** — a staff account is unusable until an administrator
+  approves it, and that approval is permanent
+- Admins can create staff accounts directly; the person sets their own password
+  through a signed, expiring link (no password ever travels by email)
+- Only *authorized* staff can be assigned complaints
+
 **Throughout**
-- Role-based access control (student / staff / admin)
-- In-app notifications on every handover
+- Role-based access control (student / staff / admin), re-checked server-side
+- In-app notifications **and email** on every handover
 - Per-category SLA targets, scaled by priority, with escalation of breaches
 - Advisory category and priority suggestions — never applied automatically
+- An email log recording every send attempt, so "was it delivered?" always has
+  an honest answer
 
 ---
 
@@ -78,7 +90,11 @@ Student → submits complaint (+ photos) → Admin → assigns → Staff → res
 | `/complaints/<id>` | Details, evidence gallery, timeline, available actions |
 | `/dashboard` | Role-aware summary for students and staff |
 | `/admin/` | Unassigned queue, SLA breaches, headline counts |
+| `/admin/staff` | Staff Management: filter, search, authorize, reject, suspend |
+| `/admin/staff/new` | Create a staff account and email a setup link |
 | `/admin/analytics` | Reports and graphs |
+| `/admin/email-log` | Every delivery attempt and its outcome |
+| `/verify` | Two-step verification |
 
 > Add screenshots to `docs/screenshots/` and link them here — they make the
 > repository far more approachable to newcomers.
@@ -102,7 +118,7 @@ Everything is open source and free to use.
 | Auth | Flask-Login + Werkzeug PBKDF2 | Standard, no rolled-my-own crypto |
 | Forms & CSRF | Flask-WTF | CSRF protection on every POST |
 | Images | Pillow | Verifies uploads really decode as images |
-| Tests | pytest | 71 tests, no database server required |
+| Tests | pytest | 113 tests, no database server required |
 
 Bootstrap, Inter and the icon set are all committed under
 [`app/static/vendor/`](app/static/vendor/) and
@@ -118,7 +134,7 @@ outlines rather than heavy shadows, pill-shaped status chips, and soft 4–12px
 corners.
 
 Every value lives as a CSS custom property at the top of
-[`app/static/css/style.css`](app/static/css/style.css) — re-skinning ROSP for
+[`app/static/css/style.css`](app/static/css/style.css) — re-skinning CampusCare for
 another institution means editing that one block.
 
 ---
@@ -130,8 +146,8 @@ On Windows, [XAMPP](https://www.apachefriends.org/) provides MySQL — start it
 from the XAMPP Control Panel before continuing.
 
 ```bash
-git clone https://github.com/<your-username>/ROSP.git
-cd ROSP
+git clone https://github.com/<your-username>/CampusCare.git
+cd CampusCare
 ```
 
 Create a virtual environment and install dependencies:
@@ -158,7 +174,8 @@ user `root` with an empty password):
 cp .env.example .env
 ```
 
-Create the database and tables, then load demo data:
+Create the database and tables, then load the reference data (categories and
+locations):
 
 ```bash
 python scripts/init_db.py
@@ -166,6 +183,13 @@ python scripts/init_db.py
 
 ```bash
 python scripts/seed.py
+```
+
+Create your administrator account. No password is typed here — the script
+prints a one-time link for setting one:
+
+```bash
+python scripts/create_admin.py --email you@yourcollege.edu --name "Your Name"
 ```
 
 Run it:
@@ -176,21 +200,32 @@ python run.py
 
 Open <http://127.0.0.1:5000>.
 
-### Demo accounts
+### Optional demo data
 
-The seed script creates these. **Change or remove them before deploying
-anywhere real.**
+`scripts/seed.py` creates **no user accounts** by default — a real deployment
+should not contain invented people. For a local walkthrough you can add
+placeholder ones:
+
+```bash
+python scripts/seed.py --demo
+```
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@rosp.edu` | `Admin@123` |
-| Staff | `ramesh@rosp.edu` | `Staff@123` |
-| Staff | `sunita@rosp.edu` | `Staff@123` |
-| Student | `aman@rosp.edu` | `Student@123` |
-| Student | `priya@rosp.edu` | `Student@123` |
+| Admin | `admin@campuscare.invalid` | `Admin@123` |
+| Staff | `ramesh@campuscare.invalid` | `Staff@123` |
+| Student | `aman@campuscare.invalid` | `Student@123` |
 
-Sign in as the student to see complaints with evidence, then as the admin to
-assign one, then as the staff member to resolve it.
+These use the reserved `.invalid` domain, so they can never receive real mail.
+Remove them before the system holds real users:
+
+```bash
+python scripts/purge_demo_data.py --apply
+```
+
+> With email configured, signing in needs the 6-digit code sent to the address
+> on the account. Placeholder addresses cannot receive one — use them only
+> while `SMTP_HOST` is unset, when codes are written to the server log instead.
 
 ---
 
@@ -211,6 +246,25 @@ All settings come from the environment, read from `.env` if present. See
 | `MAX_FILE_SIZE_MB` | `5` | Per-photo size cap |
 | `MAX_FILES_PER_COMPLAINT` | `5` | Photos per complaint |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` when serving over HTTPS |
+| `APP_NAME` | `CampusCare` | Shown in the UI and in email subjects |
+| `BASE_URL` | `http://127.0.0.1:5000` | Used to build links inside emails |
+| `ADMIN_EMAIL` | *(unset)* | Where administrator notifications go |
+| `SMTP_HOST` / `SMTP_PORT` | *(unset)* / `587` | Mail server |
+| `SMTP_USER` / `SMTP_PASSWORD` | *(unset)* | **Never commit these** |
+| `EMAIL_FROM` | `SMTP_USER` | The `From:` header |
+| `OTP_TTL_SECONDS` | `300` | How long a verification code lasts |
+| `OTP_MAX_ATTEMPTS` | `5` | Wrong guesses before a code is burned |
+| `OTP_RESEND_COOLDOWN_SECONDS` | `60` | Wait between code requests |
+| `ACTION_TOKEN_TTL_SECONDS` | `172800` | Lifetime of an account-setup link |
+
+### Email
+
+Leave `SMTP_HOST` blank and the application still runs end to end: every
+message is recorded in the email log marked `NOT_CONFIGURED`, and its body goes
+to the server log. Nothing ever claims to have sent mail it did not send.
+
+For Gmail you must use an **App Password** (Google Account → Security → 2-Step
+Verification → App passwords), not your account password.
 
 Generate a real secret key with:
 
@@ -293,10 +347,65 @@ sure that property cannot be quietly lost.
 
 ---
 
+## Accounts and access
+
+### Two-step verification
+
+Every sign-in, for every role, takes two stages:
+
+```
+email + password  →  credentials verified  →  6-digit code emailed
+                  →  code verified         →  dashboard
+```
+
+The password alone grants nothing: until the code is accepted the session holds
+only a user id and a timestamp, which is worthless on its own and expires with
+the code.
+
+The code is generated with `secrets`, **hashed before storage**, and exists in
+plaintext only inside the email. It is never logged, never put in a template
+variable, and never kept in the session. It expires (default 5 minutes), dies
+after `OTP_MAX_ATTEMPTS` wrong guesses, works once, and is superseded whenever a
+new one is issued. Requests for a fresh code are rate-limited.
+
+### Staff authorization
+
+A staff account is not usable the moment it is created:
+
+```
+staff registers  →  PENDING  →  admin notified by email
+                 →  admin reviews in Staff Management
+                 →  AUTHORIZED  →  staff emailed  →  can now sign in
+```
+
+Until approved, signing in is refused at the password step — no code is even
+sent. The four statuses are `PENDING`, `AUTHORIZED`, `REJECTED` and `SUSPENDED`.
+
+**Authorization is granted once.** Signing in never re-opens the question; only
+another explicit admin decision changes a status. A test
+(`test_signing_in_never_changes_authorization`) exists to keep that true.
+
+Only `AUTHORIZED` staff appear in the assignment dropdown, and an attempt to
+assign to anyone else is rejected server-side.
+
+### Registration and roles
+
+The registration form offers **Student** or **Staff** only. The submitted role
+is re-checked against that allow-list in the view, because a `<select>` in the
+browser is only a suggestion — an administrator account can never be created by
+self-registration.
+
+Admins can create staff directly from Staff Management. No password is chosen
+there: the account is created with an unusable random one and the person
+receives a signed, expiring link to set their own. **No password is ever sent
+by email**, and the link stops working the moment it is used.
+
+---
+
 ## Project structure
 
 ```
-ROSP/
+CampusCare/
 ├── app/
 │   ├── __init__.py            application factory
 │   ├── config-driven modules  constants.py, decorators.py, extensions.py
@@ -354,6 +463,8 @@ What is covered:
 | `test_access_control.py` | Who can read evidence; path never leaked |
 | `test_complaint_flow.py` | Submission through to closure |
 | `test_suggestions.py` | Suggestions stay advisory |
+| `test_two_factor.py` | Codes expire, are single-use, rate-limited, never stored in plaintext |
+| `test_staff_authorization.py` | Pending staff blocked, approval is permanent, only authorized staff assignable |
 
 > The "malicious" test payloads are assembled from hex at runtime. A source
 > file containing a literal shell one-liner gets quarantined by antivirus
@@ -369,26 +480,30 @@ Regenerate the SQL schema after changing a model:
 python scripts/dump_schema.py
 ```
 
+Apply schema changes to an existing database **without losing data**:
+
+```bash
+python scripts/migrate.py
+```
+
+```bash
+python scripts/migrate.py --apply
+```
+
 Reset the database completely (destructive — it asks for confirmation):
 
 ```bash
 python scripts/init_db.py --reset
 ```
 
-Create a staff or admin account (self-registration always creates a student):
+Create a staff account: sign in as an administrator and use
+**Staff Management → Add New Staff**. The person receives a link to set their
+own password.
+
+Create another administrator from the command line:
 
 ```bash
-flask shell
-```
-
-```python
-from app.extensions import db
-from app.models import User
-
-user = User(name="Name", email="staff@rosp.edu", role="staff", department="Electrical")
-user.set_password("ChangeMe@123")
-db.session.add(user)
-db.session.commit()
+python scripts/create_admin.py --email them@yourcollege.edu --name "Their Name"
 ```
 
 ### Before deploying anywhere real

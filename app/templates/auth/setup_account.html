@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Set Your Password{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 460px;">
+  <div class="card">
+    <div class="card-body p-4">
+
+      <h1 class="mb-1">Set your password</h1>
+      <p class="body-sm text-muted mb-4">
+        Welcome, {{ user.name }}. Choose a password for
+        <strong>{{ user.email }}</strong>.
+      </p>
+
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+          {{ form.password.label(class="form-label d-block") }}
+          {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""),
+                           autocomplete="new-password", autofocus=true) }}
+          {% for error in form.password.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-4">
+          {{ form.confirm.label(class="form-label d-block") }}
+          {{ form.confirm(class="form-control" + (" is-invalid" if form.confirm.errors else ""),
+                          autocomplete="new-password") }}
+          {% for error in form.confirm.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Set Password</button>
+      </form>
+
+      <div class="alert alert-info mt-4 mb-0 d-flex gap-2">
+        <span class="pt-1">{{ icon('shield', 16) }}</span>
+        <div class="body-sm">
+          This link works once. After you set a password, signing in also needs
+          a 6-digit code emailed to you.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

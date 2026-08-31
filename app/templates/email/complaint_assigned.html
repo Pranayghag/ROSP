@@ -1,0 +1,74 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("A complaint has been assigned to you") }}
+
+  {{ ui.paragraph("Hello " ~ staff.name ~ ", the following complaint is now
+                   yours to handle.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Complaint ID", complaint.code, emphasis=true) }}
+    {{ ui.field("Title", complaint.title, emphasis=true) }}
+    {{ ui.field("Category", complaint.category.name) }}
+    {{ ui.field("Priority", ui.pill(complaint.priority, priority_tone)) }}
+    {{ ui.field("Location", location_text) }}
+    {{ ui.field("Submitted By", complaint.student.name) }}
+    {{ ui.field("Submitted On", submitted_on) }}
+    {{ ui.field("Expected Resolution", due_on) }}
+    {{ ui.field("Current Status", ui.pill("ASSIGNED", "active")) }}
+  {{ ui.details_close() }}
+
+  <div style="font-size:12px; font-weight:600; letter-spacing:0.04em;
+              text-transform:uppercase; color:#74777f; margin:22px 0 6px;">
+    Description
+  </div>
+  <div style="font-size:15px; line-height:23px; color:#111c2c;
+              background-color:#f9f9ff; border:1px solid #e7eeff;
+              border-radius:8px; padding:14px 16px; white-space:pre-line;">{{ complaint.description }}</div>
+
+  {# --------------------------------------------------------------------
+     Evidence.
+
+     The photos are embedded as inline attachments (cid: references) so they
+     show without the reader needing to be signed in. Some clients block
+     remote or inline images, so the "View Complaint" button below is always
+     present as the reliable path -- and it is the only way to reach the
+     full-size original, behind the normal permission check.
+  --------------------------------------------------------------------- #}
+  {% if inline_images %}
+    <div style="font-size:12px; font-weight:600; letter-spacing:0.04em;
+                text-transform:uppercase; color:#74777f; margin:22px 0 8px;">
+      Complaint photo{{ '' if inline_images|length == 1 else 's' }}
+      ({{ inline_images|length }})
+    </div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        {% for image in inline_images %}
+          <td style="padding:0 8px 8px 0; width:{{ (100 / inline_images|length)|round|int }}%;
+                     vertical-align:top;">
+            <img src="{{ image.src }}" alt="Complaint evidence {{ loop.index }}"
+                 width="100%"
+                 style="display:block; width:100%; max-width:260px; height:auto;
+                        border:1px solid #c4c6cf; border-radius:8px;">
+          </td>
+        {% endfor %}
+      </tr>
+    </table>
+  {% elif evidence_count %}
+    {{ ui.note("This complaint has " ~ evidence_count ~ " photo(s) of evidence.
+                Open the complaint to view them.") }}
+  {% endif %}
+
+  <div style="margin-top:22px;">
+    {{ ui.button("View Complaint", complaint_url) }}
+    {{ ui.button("Open Staff Dashboard", dashboard_url, "secondary") }}
+  </div>
+
+  {{ ui.paragraph("Please review the complaint and update its status once you
+                   have started the work.") }}
+{% endblock %}
+
+{% block footer_note %}
+  You are receiving this because the complaint was assigned to you.
+{% endblock %}

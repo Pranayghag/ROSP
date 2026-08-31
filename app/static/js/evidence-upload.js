@@ -16,12 +16,15 @@
   var allowedTypes = config.allowedTypes || [];
   var allowedExtensions = config.allowedExtensions || [];
 
-  var input = document.getElementById("photos");
-  var dropzone = document.getElementById("dropzone");
-  var grid = document.getElementById("preview-grid");
-  var counter = document.getElementById("photo-counter");
-  var errorBox = document.getElementById("photo-errors");
-  var clearButton = document.getElementById("clear-photos");
+  // Element ids are configurable so the same widget serves both the student's
+  // evidence upload and the staff member's resolution photos. Defaults match
+  // the complaint submission form.
+  var input = document.getElementById(config.inputId || "photos");
+  var dropzone = document.getElementById(config.dropzoneId || "dropzone");
+  var grid = document.getElementById(config.gridId || "preview-grid");
+  var counter = document.getElementById(config.counterId || "photo-counter");
+  var errorBox = document.getElementById(config.errorsId || "photo-errors");
+  var clearButton = document.getElementById(config.clearId || "clear-photos");
 
   if (!input || !grid) {
     return;

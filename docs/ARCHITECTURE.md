@@ -1,6 +1,6 @@
 # Architecture
 
-A tour of how ROSP is put together, for anyone picking the codebase up.
+A tour of how CampusCare is put together, for anyone picking the codebase up.
 
 ---
 

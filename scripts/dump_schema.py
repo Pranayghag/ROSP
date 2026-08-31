@@ -24,7 +24,7 @@ from app.extensions import db
 
 HEADER = """\
 -- ---------------------------------------------------------------------------
--- ROSP database schema (MySQL / MariaDB)
+-- CampusCare database schema (MySQL / MariaDB)
 --
 -- GENERATED FILE -- do not edit by hand.
 -- Regenerate with:  python scripts/dump_schema.py

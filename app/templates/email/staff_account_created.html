@@ -1,0 +1,32 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("A staff account has been created for you") }}
+
+  {{ ui.paragraph("Hello " ~ staff.name ~ ", an administrator has created a " ~
+                   app_name ~ " staff account for this email address. It is
+                   already authorized -- you only need to set a password.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Email", staff.email, emphasis=true) }}
+    {{ ui.field("Department", staff.department or "Not set") }}
+    {{ ui.field("Designation", staff.designation or "Not set") }}
+    {{ ui.field("Staff ID", staff.staff_id or "Not set") }}
+    {{ ui.field("Status", ui.pill("AUTHORIZED", "good")) }}
+  {{ ui.details_close() }}
+
+  {{ ui.button("Set Your Password", setup_url) }}
+
+  {{ ui.note("This link is unique to you and expires in " ~ ttl_hours ~ " hours.
+              No password was created for you and none is included in this
+              email -- you choose your own. After setting it, signing in also
+              needs a 6-digit code we email to this address.") }}
+
+  {{ ui.paragraph("If the link has expired, ask the administrator to send a new
+                   one.") }}
+{% endblock %}
+
+{% block footer_note %}
+  We never send passwords by email.
+{% endblock %}

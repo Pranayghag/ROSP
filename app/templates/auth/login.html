@@ -37,7 +37,7 @@
   <div>
     <div class="card">
       <div class="card-body p-4">
-        <h1 class="mb-1">Sign in to ROSP</h1>
+        <h1 class="mb-1">Sign in to {{ config.APP_NAME }}</h1>
         <p class="body-sm text-muted mb-4">Use your campus email address.</p>
 
         <form method="post" novalidate>
@@ -47,7 +47,7 @@
             {{ form.email.label(class="form-label d-block") }}
             {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""),
                           autocomplete="email", autofocus=true,
-                          placeholder="you@rosp.edu") }}
+                          placeholder="you@college.edu") }}
             {% for error in form.email.errors %}
               <div class="invalid-feedback d-block">{{ error }}</div>
             {% endfor %}
@@ -73,24 +73,11 @@
       </div>
     </div>
 
-    {# Visible only in development, so a reviewer can sign in immediately. #}
-    {% if config.DEBUG %}
-      <div class="card mt-3">
-        <div class="card-body py-3">
-          <div class="label-md mb-2">DEMO ACCOUNTS</div>
-          {% for email, password, role in [
-              ('admin@rosp.edu', 'Admin@123', 'Admin'),
-              ('ramesh@rosp.edu', 'Staff@123', 'Staff'),
-              ('aman@rosp.edu', 'Student@123', 'Student')] %}
-            <div class="d-flex align-items-center gap-2 body-sm py-1">
-              <span class="pill pill-secondary">{{ role }}</span>
-              <span class="text-muted">{{ email }}</span>
-              <code class="ms-auto">{{ password }}</code>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
+    {#
+      No hardcoded demo credentials here. The placeholder accounts are opt-in
+      (`python scripts/seed.py --demo`) and are removed from any real install,
+      so listing them would advertise logins that do not exist.
+    #}
   </div>
 
 </div>

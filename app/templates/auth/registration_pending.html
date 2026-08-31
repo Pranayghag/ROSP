@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Registration Received{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 560px;">
+  <div class="card">
+    <div class="card-body p-4 text-center">
+
+      <div class="empty-icon mb-3" style="width:56px; height:56px;">
+        {{ icon('clock', 26) }}
+      </div>
+
+      <h1 class="mb-2">Registration received</h1>
+      <span class="pill pill-warning mb-3 d-inline-block">Pending authorization</span>
+
+      <p class="text-muted">
+        Thank you, {{ user.name }}. Your staff account has been created and an
+        administrator has been notified.
+      </p>
+
+      <div class="text-start mt-4">
+        <div class="detail-row">
+          <span class="detail-key">{{ icon('user', 16) }} Name</span>
+          <span class="detail-value">{{ user.name }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">{{ icon('inbox', 16) }} Email</span>
+          <span class="detail-value">{{ user.email }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">{{ icon('tag', 16) }} Designation</span>
+          <span class="detail-value">{{ user.designation or 'Not set' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">{{ icon('pin', 16) }} Department</span>
+          <span class="detail-value">{{ user.department or 'Not set' }}</span>
+        </div>
+      </div>
+
+      <div class="alert alert-info text-start mt-4 d-flex gap-2">
+        <span class="pt-1">{{ icon('bell', 16) }}</span>
+        <div>
+          <strong>What happens next.</strong>
+          You cannot sign in yet. Once an administrator authorizes your account
+          you will get an email at <strong>{{ user.email }}</strong>, and you
+          can then sign in with your password and a verification code.
+        </div>
+      </div>
+
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary mt-2">
+        Back to sign in
+      </a>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

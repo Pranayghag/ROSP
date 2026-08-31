@@ -1,7 +1,7 @@
 [project]
-name = "rosp"
+name = "campuscare"
 version = "0.1.0"
-description = "Campus complaint management system with photo evidence, built with Flask and MySQL."
+description = "CampusCare -- smart college complaint and maintenance management, with photo evidence, staff authorization and two-step verification."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -24,8 +24,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/OWNER/ROSP"
-Issues = "https://github.com/OWNER/ROSP/issues"
+Homepage = "https://github.com/OWNER/CampusCare"
+Issues = "https://github.com/OWNER/CampusCare/issues"
 
 # ---------------------------------------------------------------------------
 # Lint configuration. Pinned explicitly so `ruff check` behaves identically on

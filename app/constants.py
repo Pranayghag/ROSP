@@ -103,3 +103,62 @@ ATTACHMENT_TYPE_LABELS = {
     AttachmentType.EVIDENCE: "Evidence",
     AttachmentType.RESOLUTION: "Resolution Photo",
 }
+
+
+class AuthorizationStatus:
+    """Whether a staff account may be used.
+
+    Students are created already AUTHORIZED -- the gate exists so that an
+    administrator vets every staff account before it can see complaints.
+    Authorization is granted once and stored permanently; it is never reset by
+    logging in. Only an explicit admin action moves an account out of
+    AUTHORIZED.
+    """
+
+    PENDING = "PENDING"
+    AUTHORIZED = "AUTHORIZED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
+
+    ALL = (PENDING, AUTHORIZED, REJECTED, SUSPENDED)
+
+
+AUTHORIZATION_LABELS = {
+    AuthorizationStatus.PENDING: "Pending",
+    AuthorizationStatus.AUTHORIZED: "Authorized",
+    AuthorizationStatus.REJECTED: "Rejected",
+    AuthorizationStatus.SUSPENDED: "Suspended",
+}
+
+AUTHORIZATION_COLOURS = {
+    AuthorizationStatus.PENDING: "warning",
+    AuthorizationStatus.AUTHORIZED: "success",
+    AuthorizationStatus.REJECTED: "danger",
+    AuthorizationStatus.SUSPENDED: "secondary",
+}
+
+#: Messages shown to a staff member who cannot sign in yet. Wording comes from
+#: the specification.
+AUTHORIZATION_MESSAGES = {
+    AuthorizationStatus.PENDING: (
+        "Your staff account is awaiting administrator authorization."
+    ),
+    AuthorizationStatus.REJECTED: (
+        "Your staff registration was not approved. Please contact the administrator."
+    ),
+    AuthorizationStatus.SUSPENDED: (
+        "Your staff account has been suspended. Please contact the administrator."
+    ),
+}
+
+
+#: Designations a staff member may hold.
+DESIGNATIONS = (
+    "Teacher",
+    "Professor/Faculty",
+    "Lab Assistant",
+    "IT Support",
+    "Maintenance Staff",
+    "Electrical Staff",
+    "Other",
+)

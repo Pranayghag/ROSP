@@ -1,0 +1,12 @@
+{{ app_name }} - verification code
+
+Hello {{ user.name }},
+
+Your one-time code is: {{ otp_code }}
+
+It expires in {{ ttl_minutes }} minute(s) and can be used once.
+
+If you did not try to sign in, someone may know your password. Change it as
+soon as you can and tell an administrator.
+
+Never share this code. {{ app_name }} will never ask you for it.

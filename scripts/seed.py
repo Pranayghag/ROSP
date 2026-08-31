@@ -1,17 +1,22 @@
-"""Load demo data so the project is explorable the moment it is cloned.
+"""Load reference data, and optionally a demo dataset.
 
-    python scripts/seed.py
+    python scripts/seed.py            # categories and locations only
+    python scripts/seed.py --demo     # ...plus placeholder people and complaints
 
-Creates categories, locations, one admin, three staff, three students and a
-handful of complaints spread across the workflow -- including complaints with
-generated photo evidence, so the gallery and the permission checks can be seen
-working without anyone having to find real images first.
+By default this creates only *reference* data -- the categories and locations
+a complaint has to choose from. That is what a real deployment needs.
+
+``--demo`` additionally creates placeholder users and complaints so a fresh
+clone has something to look at. Those accounts use the reserved ``.invalid``
+domain, which can never receive mail, and they must not exist in a deployment
+holding real users -- ``scripts/purge_demo_data.py`` removes them.
 
 Safe to re-run: existing rows are matched by natural key and left alone.
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from datetime import timedelta
 from io import BytesIO
@@ -60,13 +65,13 @@ LOCATIONS = [
 
 USERS = [
     # (name, email, password, role, department, roll_no)
-    ("Admin User", "admin@rosp.edu", "Admin@123", Role.ADMIN, "Administration", None),
-    ("Ramesh Electrician", "ramesh@rosp.edu", "Staff@123", Role.STAFF, "Electrical", None),
-    ("Sunita Plumber", "sunita@rosp.edu", "Staff@123", Role.STAFF, "Plumbing", None),
-    ("Vikram IT Support", "vikram@rosp.edu", "Staff@123", Role.STAFF, "IT Services", None),
-    ("Aman Gupta", "aman@rosp.edu", "Student@123", Role.STUDENT, "Computer Science", "CS21042"),
-    ("Priya Sharma", "priya@rosp.edu", "Student@123", Role.STUDENT, "Information Tech", "IT21088"),
-    ("Rahul Verma", "rahul@rosp.edu", "Student@123", Role.STUDENT, "Electronics", "EC21015"),
+    ("Admin User", "admin@campuscare.invalid", "Admin@123", Role.ADMIN, "Administration", None),
+    ("Ramesh Electrician", "ramesh@campuscare.invalid", "Staff@123", Role.STAFF, "Electrical", None),
+    ("Sunita Plumber", "sunita@campuscare.invalid", "Staff@123", Role.STAFF, "Plumbing", None),
+    ("Vikram IT Support", "vikram@campuscare.invalid", "Staff@123", Role.STAFF, "IT Services", None),
+    ("Aman Gupta", "aman@campuscare.invalid", "Student@123", Role.STUDENT, "Computer Science", "CS21042"),
+    ("Priya Sharma", "priya@campuscare.invalid", "Student@123", Role.STUDENT, "Information Tech", "IT21088"),
+    ("Rahul Verma", "rahul@campuscare.invalid", "Student@123", Role.STUDENT, "Electronics", "EC21015"),
 ]
 
 #: (title, description, category, location, priority, student email, status,
@@ -82,7 +87,7 @@ COMPLAINTS = [
         "Plumbing & Water",
         "Room 204",
         Priority.HIGH,
-        "aman@rosp.edu",
+        "aman@campuscare.invalid",
         Status.IN_PROGRESS,
         [("Water leak on ceiling", (86, 130, 168)), ("Damaged ceiling panel", (140, 122, 96))],
     ),
@@ -96,7 +101,7 @@ COMPLAINTS = [
         "Classroom Equipment",
         "Room 204",
         Priority.MEDIUM,
-        "aman@rosp.edu",
+        "aman@campuscare.invalid",
         Status.PENDING,
         [("Blank projector screen", (64, 68, 82))],
     ),
@@ -109,7 +114,7 @@ COMPLAINTS = [
         "Electrical",
         "Room 101",
         Priority.URGENT,
-        "priya@rosp.edu",
+        "priya@campuscare.invalid",
         Status.ASSIGNED,
         [("Wobbling ceiling fan", (150, 140, 120))],
     ),
@@ -123,7 +128,7 @@ COMPLAINTS = [
         "Wi-Fi & Network",
         "Central Library",
         Priority.MEDIUM,
-        "priya@rosp.edu",
+        "priya@campuscare.invalid",
         Status.STUDENT_VERIFICATION,
         [],
     ),
@@ -136,7 +141,7 @@ COMPLAINTS = [
         "Plumbing & Water",
         "Ground Floor Washroom",
         Priority.HIGH,
-        "rahul@rosp.edu",
+        "rahul@campuscare.invalid",
         Status.CLOSED,
         [("Running tap", (110, 145, 160))],
     ),
@@ -149,7 +154,7 @@ COMPLAINTS = [
         "Computer Lab",
         "Computer Lab 1",
         Priority.MEDIUM,
-        "rahul@rosp.edu",
+        "rahul@campuscare.invalid",
         Status.PENDING,
         [],
     ),
@@ -162,7 +167,7 @@ COMPLAINTS = [
         "Furniture",
         "Seminar Hall",
         Priority.LOW,
-        "aman@rosp.edu",
+        "aman@campuscare.invalid",
         Status.PENDING,
         [],
     ),
@@ -187,7 +192,7 @@ def make_sample_photo(label: str, colour: tuple[int, int, int]) -> FileStorage:
 
     draw.rectangle([40, height // 2 - 60, width - 40, height // 2 + 60], fill=(0, 0, 0))
     draw.text((70, height // 2 - 18), label, fill=(255, 255, 255))
-    draw.text((70, height // 2 + 6), "ROSP sample evidence", fill=(200, 200, 200))
+    draw.text((70, height // 2 + 6), "CampusCare sample evidence", fill=(200, 200, 200))
 
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=88)
@@ -209,8 +214,8 @@ def _get_or_create(model, defaults: dict | None = None, **lookup):
     return instance, True
 
 
-def seed_all() -> None:
-    """Populate the database with demo data."""
+def seed_all(demo: bool = False) -> None:
+    """Populate reference data, and demo users/complaints when ``demo`` is set."""
     created = {"categories": 0, "locations": 0, "users": 0, "complaints": 0, "photos": 0}
 
     for name, description, sla_hours in CATEGORIES:
@@ -224,6 +229,17 @@ def seed_all() -> None:
         created["locations"] += int(made)
 
     db.session.flush()
+
+    if not demo:
+        db.session.commit()
+        print("Reference data seeded:")
+        print(f"  categories   +{created['categories']}")
+        print(f"  locations    +{created['locations']}")
+        print(
+            "\nNo user accounts were created. Use `--demo` for placeholder data,\n"
+            "or `python scripts/create_admin.py` to set up a real administrator."
+        )
+        return
 
     for name, email, password, role, department, roll_no in USERS:
         user, made = _get_or_create(
@@ -314,17 +330,29 @@ def seed_all() -> None:
     print("Seed complete:")
     for key, value in created.items():
         print(f"  {key:<12} +{value}")
-    print("\nDemo accounts (password shown):")
-    print(f"  {'admin@rosp.edu':<22} Admin@123     (admin)")
-    print(f"  {'ramesh@rosp.edu':<22} Staff@123     (staff)")
-    print(f"  {'aman@rosp.edu':<22} Student@123   (student)")
+    print("\nDemo accounts (placeholder addresses, cannot receive mail):")
+    print(f"  {'admin@campuscare.invalid':<26} Admin@123     (admin)")
+    print(f"  {'ramesh@campuscare.invalid':<26} Staff@123     (staff)")
+    print(f"  {'aman@campuscare.invalid':<26} Student@123   (student)")
+    print(
+        "\nThese are for local demonstration only. Remove them before the\n"
+        "system holds real users:  python scripts/purge_demo_data.py --apply"
+    )
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Seed the database.")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="also create placeholder users and complaints (local demos only)",
+    )
+    options = parser.parse_args()
+
     app = create_app()
     with app.app_context():
         db.create_all()
-        seed_all()
+        seed_all(demo=options.demo)
 
 
 if __name__ == "__main__":

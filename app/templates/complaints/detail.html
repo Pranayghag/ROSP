@@ -9,8 +9,7 @@
 
 {# --- Page header ------------------------------------------------------- #}
 <div class="mb-4">
-  <a href="{{ url_for('complaints.index') }}"
-     class="btn btn-ghost btn-sm ps-0 mb-2">
+  <a href="{{ url_for('complaints.index') }}" class="btn btn-ghost btn-sm ps-0 mb-2">
     {{ icon('arrow-left', 16) }} Back to list
   </a>
 
@@ -30,7 +29,6 @@
   {# ====================================================== main column === #}
   <div class="col-lg-8">
 
-    {# --- Title and description --- #}
     <div class="card mb-4">
       <div class="card-body">
         <h2 class="mb-3">{{ complaint.title }}</h2>
@@ -39,20 +37,50 @@
       </div>
     </div>
 
-    {# --- Evidence submitted by the student --- #}
+    {# --- Before / after -------------------------------------------------
+       The student's evidence and the staff member's proof of repair are
+       separate rows in `attachments`, distinguished by attachment_type, so
+       nothing is ever overwritten and both remain viewable side by side.
+    -------------------------------------------------------------------- #}
     <div class="card mb-4">
       <div class="card-header">
-        {{ icon('image', 20) }} Evidence Attachments
+        {{ icon('image', 20) }}
+        {% if complaint.resolution_photos %}Before &amp; After{% else %}Evidence Attachments{% endif %}
         <span class="file-count">
-          {{ complaint.evidence|length }} File{{ '' if complaint.evidence|length == 1 else 's' }}
+          {{ complaint.attachments|length }} File{{ '' if complaint.attachments|length == 1 else 's' }}
         </span>
       </div>
       <div class="card-body">
-        {{ evidence_list(complaint.evidence) }}
+        <div class="row g-4">
+
+          <div class="{{ 'col-md-6' if complaint.resolution_photos else 'col-12' }}">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span class="pill pill-secondary">BEFORE</span>
+              <span class="body-sm text-muted">
+                Submitted by {{ complaint.student.name }}
+              </span>
+            </div>
+            {{ evidence_list(complaint.evidence) }}
+          </div>
+
+          {% if complaint.resolution_photos %}
+            <div class="col-md-6">
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="pill pill-success">AFTER</span>
+                <span class="body-sm text-muted">
+                  Completed work
+                  {%- if complaint.assigned_staff %} by {{ complaint.assigned_staff.name }}{% endif %}
+                </span>
+              </div>
+              {{ evidence_list(complaint.resolution_photos) }}
+            </div>
+          {% endif %}
+
+        </div>
 
         {% if complaint.evidence and current_user.id == complaint.student_id
               and complaint.status == Status.PENDING %}
-          <div class="mt-3 pt-3" style="border-top: 1px solid var(--outline-variant);">
+          <div class="mt-4 pt-3" style="border-top: 1px solid var(--outline-variant);">
             <p class="body-sm text-muted mb-2">
               You can remove a photo while the complaint is still pending.
             </p>
@@ -73,25 +101,112 @@
       </div>
     </div>
 
-    {# --- Proof of repair uploaded by staff (Phase 10) --- #}
-    {% if complaint.resolution_photos %}
+    {# --- What the staff member did --- #}
+    {% if complaint.resolution_note %}
       <div class="card mb-4">
-        <div class="card-header">
-          {{ icon('check', 20) }} Resolution Photos
-          <span class="file-count">{{ complaint.resolution_photos|length }} File(s)</span>
-        </div>
+        <div class="card-header">{{ icon('check', 20) }} Resolution notes</div>
         <div class="card-body">
-          {{ evidence_list(complaint.resolution_photos) }}
+          <p class="description-body mb-0">{{ complaint.resolution_note }}</p>
         </div>
       </div>
     {% endif %}
 
-    {# --- Actions available to this user --- #}
-    {% if actions %}
+    {# --- Why the student sent it back --- #}
+    {% if complaint.reopen_reason %}
+      <div class="alert alert-warning d-flex gap-2 mb-4">
+        <span class="pt-1">{{ icon('alert', 18) }}</span>
+        <div>
+          <strong>Reopened by the student.</strong>
+          <div class="mt-1">{{ complaint.reopen_reason }}</div>
+        </div>
+      </div>
+    {% endif %}
+
+    {# --- Actions available to this user ----------------------------------
+       Split by kind first. Resolving and reopening each need their own form
+       with extra fields; everything else is a plain button. Grouping up front
+       keeps each card's markup self-contained instead of opening a <div> in
+       one loop iteration and closing it in another.
+    -------------------------------------------------------------------- #}
+    {% set groups = namespace(resolve=none, reopen=none, simple=[]) %}
+    {% for action in actions %}
+      {% if action[0] == Status.RESOLVED %}
+        {% set groups.resolve = action %}
+      {% elif action[0] == Status.REOPENED %}
+        {% set groups.reopen = action %}
+      {% else %}
+        {% set groups.simple = groups.simple + [action] %}
+      {% endif %}
+    {% endfor %}
+
+    {# ---- Staff resolution form ---- #}
+    {% if groups.resolve %}
+      <div class="card mb-4">
+        <div class="card-header">{{ icon('check', 20) }} Resolve Complaint</div>
+        <div class="card-body">
+          <form method="post"
+                action="{{ url_for('complaints.update_status', complaint_id=complaint.id) }}"
+                enctype="multipart/form-data" id="resolve-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="{{ groups.resolve[0] }}">
+
+            <div class="mb-3">
+              <label class="form-label d-block" for="resolution_note">
+                Resolution description
+              </label>
+              <textarea class="form-control" id="resolution_note" name="resolution_note"
+                        rows="4" required minlength="10"
+                        placeholder="Describe what you did to fix the problem..."></textarea>
+              <p class="form-text mt-1">
+                The student sees this when they verify the work.
+              </p>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label d-block" for="resolution_photos">
+                Upload completion / resolution photo
+              </label>
+
+              <div class="dropzone" id="resolve-dropzone" role="button" tabindex="0"
+                   aria-label="Choose completion photos, or drag and drop them here">
+                <div class="dropzone-icon">{{ icon('camera', 40) }}</div>
+                <div class="dropzone-action">+ Choose Image</div>
+                <p class="dropzone-hint">or drag and drop here</p>
+                <p class="dropzone-formats">
+                  Up to {{ max_photos }} images &middot; {{ max_photo_mb }} MB each
+                  &middot; JPG, JPEG, PNG, WEBP
+                </p>
+              </div>
+
+              <input type="file" class="d-none" id="resolution_photos"
+                     name="resolution_photos" multiple
+                     accept="image/jpeg,image/png,image/webp">
+
+              <div class="preview-strip d-none" id="resolve-preview"></div>
+              <div class="alert alert-danger mt-3 d-none" id="resolve-errors"></div>
+              <p class="label-sm text-faint mt-2 mb-0" id="resolve-counter">
+                0 of {{ max_photos }} selected
+              </p>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <input type="text" name="note" class="form-control flex-grow-1"
+                     placeholder="Internal note (optional)" maxlength="500"
+                     style="min-width: 180px;">
+              <button type="submit" class="btn btn-success">
+                {{ icon('check', 16) }} {{ groups.resolve[1] }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+    {# ---- Plain transitions ---- #}
+    {% if groups.simple %}
       <div class="card mb-4">
         <div class="card-header">{{ icon('zap', 20) }} Update Status</div>
         <div class="card-body">
-
           {% if complaint.status == Status.STUDENT_VERIFICATION
                 and current_user.id == complaint.student_id %}
             <p class="mb-3">
@@ -100,32 +215,16 @@
             </p>
           {% endif %}
 
-          {% for status, label, style in actions %}
+          {% for status, label, style in groups.simple %}
             <form method="post"
                   action="{{ url_for('complaints.update_status', complaint_id=complaint.id) }}"
-                  enctype="multipart/form-data" class="action-form mb-3 pb-3"
-                  style="border-bottom: 1px solid var(--outline-variant);">
+                  class="mb-3">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="status" value="{{ status }}">
-
-              {# Staff may attach proof of the completed repair. #}
-              {% if status == Status.RESOLVED %}
-                <label class="form-label d-block" for="resolution_photos">
-                  Photos of the completed work (optional)
-                </label>
-                <input type="file" class="form-control mb-2"
-                       id="resolution_photos" name="resolution_photos"
-                       accept="image/jpeg,image/png,image/webp" multiple>
-                <p class="form-text mb-2">
-                  Up to {{ max_photos }} images, {{ max_photo_mb }} MB each.
-                  JPG, JPEG, PNG, WEBP.
-                </p>
-              {% endif %}
-
               <div class="d-flex flex-wrap gap-2">
                 <input type="text" name="note" class="form-control flex-grow-1"
                        placeholder="Add a note (optional)" maxlength="500"
-                       style="min-width: 200px;">
+                       style="min-width: 180px;">
                 <button type="submit" class="btn btn-{{ style }}">{{ label }}</button>
               </div>
             </form>
@@ -134,6 +233,33 @@
           <p class="body-sm text-muted mb-0">
             Every action is recorded in the timeline with your name and the time.
           </p>
+        </div>
+      </div>
+    {% endif %}
+
+    {# ---- Student rejecting the resolution ---- #}
+    {% if groups.reopen %}
+      <div class="card mb-4">
+        <div class="card-header">{{ icon('alert', 20) }} Problem not solved?</div>
+        <div class="card-body">
+          <form method="post"
+                action="{{ url_for('complaints.update_status', complaint_id=complaint.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="{{ groups.reopen[0] }}">
+
+            <div class="mb-3">
+              <label class="form-label d-block" for="reopen_reason">
+                What is still wrong?
+              </label>
+              <textarea class="form-control" id="reopen_reason" name="reopen_reason"
+                        rows="3" required minlength="5"
+                        placeholder="Tell the staff member what still needs doing..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-danger">
+              {{ icon('refresh', 16) }} {{ groups.reopen[1] }}
+            </button>
+          </form>
         </div>
       </div>
     {% endif %}
@@ -160,7 +286,8 @@
         {{ detail_row('user', 'Submitted By', complaint.student.name) }}
 
         {% if complaint.due_at %}
-          {{ detail_row('clock', 'SLA Due', complaint.due_at|datetime('%d %b %Y, %H:%M')) }}
+          {{ detail_row('clock', 'Expected Resolution',
+                        complaint.due_at|datetime('%d %b %Y, %H:%M')) }}
         {% endif %}
         {% if complaint.resolved_at %}
           {{ detail_row('check', 'Resolved', complaint.resolved_at|datetime('%d %b %Y')) }}
@@ -208,4 +335,23 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if groups is defined and groups.resolve %}
+<script>
+  window.ROSP_UPLOAD_CONFIG = {
+    maxFiles: {{ max_photos|tojson }},
+    maxFileSizeMb: {{ max_photo_mb|tojson }},
+    allowedTypes: ["image/jpeg", "image/png", "image/webp"],
+    allowedExtensions: [".jpg", ".jpeg", ".png", ".webp"],
+    inputId: "resolution_photos",
+    dropzoneId: "resolve-dropzone",
+    gridId: "resolve-preview",
+    counterId: "resolve-counter",
+    errorsId: "resolve-errors"
+  };
+</script>
+<script src="{{ url_for('static', filename='js/evidence-upload.js') }}"></script>
+{% endif %}
 {% endblock %}

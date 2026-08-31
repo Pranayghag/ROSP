@@ -1,0 +1,31 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("A complaint has been reopened") }}
+
+  {{ ui.paragraph("Hello " ~ recipient.name ~ ", the student says the problem
+                   in this complaint is not fixed, so it has been reopened and
+                   is back in progress.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Complaint ID", complaint.code, emphasis=true) }}
+    {{ ui.field("Title", complaint.title) }}
+    {{ ui.field("Location", location_text) }}
+    {{ ui.field("Reported By", complaint.student.name) }}
+    {{ ui.field("Status", ui.pill("IN PROGRESS", "active")) }}
+  {{ ui.details_close() }}
+
+  {% if complaint.reopen_reason %}
+    <div style="font-size:12px; font-weight:600; letter-spacing:0.04em;
+                text-transform:uppercase; color:#74777f; margin:18px 0 6px;">
+      Why the student reopened it
+    </div>
+    <div style="font-size:15px; line-height:23px; color:#111c2c;
+                background-color:#fef3c7; border-left:3px solid #b45309;
+                border-radius:0 8px 8px 0; padding:14px 16px;
+                white-space:pre-line;">{{ complaint.reopen_reason }}</div>
+  {% endif %}
+
+  {{ ui.button("View Complaint", complaint_url) }}
+{% endblock %}

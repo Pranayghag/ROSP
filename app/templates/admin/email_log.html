@@ -1,0 +1,74 @@
+{#
+  A record of every message the application tried to send.
+
+  Its purpose is honesty: when SMTP is not configured, or a send fails, this
+  page says so plainly rather than letting the app appear to have emailed
+  someone it did not.
+#}
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import empty_state with context %}
+{% block title %}Email Log{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Email Log</h1>
+    <p class="page-sub">The 200 most recent delivery attempts.</p>
+  </div>
+</div>
+
+{% if not config.EMAIL_ENABLED %}
+  <div class="alert alert-warning d-flex gap-2 mb-4">
+    <span class="pt-1">{{ icon('alert', 18) }}</span>
+    <div>
+      <strong>Email sending is switched off.</strong>
+      No SMTP credentials are configured, so nothing below marked
+      <em>NOT_CONFIGURED</em> actually left this machine. Set
+      <code>SMTP_HOST</code>, <code>SMTP_USER</code> and
+      <code>SMTP_PASSWORD</code> in <code>.env</code> to enable delivery.
+    </div>
+  </div>
+{% endif %}
+
+{% if logs %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>When</th><th>Status</th><th>To</th><th>Subject</th>
+            <th>Template</th><th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+            <tr>
+              <td class="text-nowrap text-muted">{{ log.created_at|since }}</td>
+              <td>
+                <span class="pill pill-{{ 'success' if log.status == 'SENT' else ('danger' if log.status == 'FAILED' else 'secondary') }}">
+                  {{ log.status }}
+                </span>
+              </td>
+              <td>{{ log.to_address }}</td>
+              <td>{{ log.subject }}</td>
+              <td class="text-muted">{{ log.template or '--' }}</td>
+              <td class="body-sm" style="max-width: 320px;">
+                {% if log.error %}
+                  <span style="color: var(--error);">{{ log.error }}</span>
+                {% else %}
+                  <span class="text-faint">--</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="card">
+    {{ empty_state('inbox', 'No email has been attempted yet.') }}
+  </div>
+{% endif %}
+{% endblock %}

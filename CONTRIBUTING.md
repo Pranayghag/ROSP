@@ -1,4 +1,4 @@
-# Contributing to ROSP
+# Contributing to CampusCare
 
 Thanks for taking an interest. This project began as a college mini project and
 is deliberately kept small and readable, so contributions of every size are
@@ -11,8 +11,8 @@ By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Getting set up
 
 ```bash
-git clone https://github.com/<your-username>/ROSP.git
-cd ROSP
+git clone https://github.com/<your-username>/CampusCare.git
+cd CampusCare
 python -m venv .venv
 ```
 

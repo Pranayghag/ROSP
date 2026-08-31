@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Verification{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 460px;">
+  <div class="card">
+    <div class="card-body p-4 text-center">
+
+      <div class="empty-icon mb-3" style="width:56px; height:56px;">
+        {{ icon('shield', 26) }}
+      </div>
+
+      <h1 class="mb-1">Two-step verification</h1>
+      <p class="body-sm text-muted mb-4">
+        {% if dev_code %}
+          A 6-digit code was generated for<br>
+        {% else %}
+          We emailed a 6-digit code to<br>
+        {% endif %}
+        <strong>{{ email }}</strong>
+      </p>
+
+      {#
+        Development fallback. Shown only when the server is in debug mode AND
+        no SMTP credentials are configured -- otherwise there would be no way
+        to sign in at all. Never reachable in production, where DEBUG is off.
+      #}
+      {% if dev_code %}
+        <div class="alert alert-warning text-start d-flex gap-2 mb-4">
+          <span class="pt-1">{{ icon('alert', 18) }}</span>
+          <div>
+            <div class="fw-semibold mb-1">Development mode &mdash; email is off</div>
+            <p class="body-sm mb-2">
+              No SMTP credentials are configured, so this code could not be
+              emailed. It is shown here only because the server is running in
+              debug mode. Configure <code>SMTP_HOST</code> and this disappears.
+            </p>
+            <div class="text-center py-2"
+                 style="background: var(--surface-lowest); border-radius: var(--radius-lg);">
+              <span style="font-size: 26px; font-weight: 700; letter-spacing: 0.3em;
+                           font-family: 'Courier New', monospace; color: var(--primary);">
+                {{ dev_code }}
+              </span>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3 text-start">
+          {{ form.code.label(class="form-label d-block") }}
+          {{ form.code(class="form-control text-center" + (" is-invalid" if form.code.errors else ""),
+                       autocomplete="one-time-code", inputmode="numeric",
+                       maxlength="6", autofocus=true, placeholder="000000",
+                       style="font-size:26px; letter-spacing:0.4em; font-weight:600;") }}
+          {% for error in form.code.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Verify &amp; Continue</button>
+      </form>
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <form method="post" action="{{ url_for('auth.resend_code') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-ghost btn-sm px-0"
+                  {{ 'disabled' if resend_in > 0 }}>
+            {{ icon('refresh', 14) }}
+            {% if resend_in > 0 %}Resend in {{ resend_in }}s{% else %}Send a new code{% endif %}
+          </button>
+        </form>
+
+        <form method="post" action="{{ url_for('auth.cancel_verify') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-ghost btn-sm px-0">Cancel</button>
+        </form>
+      </div>
+
+      <p class="label-sm text-faint mt-3 mb-0">
+        The code expires shortly and can be used once.
+        Never share it with anyone.
+      </p>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if resend_in > 0 %}
+<script>
+  /* Re-enable the resend button when the cooldown elapses, without a reload. */
+  (function () {
+    var remaining = {{ resend_in|int }};
+    var button = document.querySelector('form[action$="/resend"] button');
+    if (!button) return;
+
+    var tick = setInterval(function () {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(tick);
+        button.disabled = false;
+        button.textContent = "Send a new code";
+      } else {
+        button.textContent = "Resend in " + remaining + "s";
+      }
+    }, 1000);
+  })();
+</script>
+{% endif %}
+{% endblock %}

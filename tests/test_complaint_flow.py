@@ -172,7 +172,11 @@ def test_complaint_runs_the_whole_lifecycle(client, login, form_ids, users):
     # 4. Staff resolve it, attaching a photo of the repair.
     client.post(
         f"/complaints/{complaint.id}/status",
-        data={"status": Status.RESOLVED, "resolution_photos": [photo("fixed.jpg")]},
+        data={
+            "status": Status.RESOLVED,
+            "resolution_note": "Replaced the projector lamp and tested both HDMI ports.",
+            "resolution_photos": [photo("fixed.jpg")],
+        },
         content_type="multipart/form-data",
         follow_redirects=True,
     )
@@ -219,7 +223,7 @@ def test_student_can_reopen_an_unfixed_complaint(client, login, form_ids, users)
 
     client.post(
         f"/complaints/{complaint.id}/status",
-        data={"status": Status.REOPENED, "note": "Still dripping"},
+        data={"status": Status.REOPENED, "reopen_reason": "It is still dripping."},
         follow_redirects=True,
     )
     db.session.refresh(complaint)

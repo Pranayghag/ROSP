@@ -1,18 +1,41 @@
 {% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
 {% block title %}Register{% endblock %}
 
 {% block content %}
-<div class="mx-auto" style="max-width: 640px;">
+<div class="mx-auto" style="max-width: 680px;">
   <div class="card">
     <div class="card-body p-4">
-      <h1 class="mb-1">Create a student account</h1>
+      <h1 class="mb-1">Create your account</h1>
       <p class="body-sm text-muted mb-4">
-        Staff and administrator accounts are created by an administrator.
+        Administrator accounts are not created here &mdash; they are managed
+        separately by the administration office.
       </p>
 
-      <form method="post" novalidate>
+      <form method="post" novalidate id="register-form">
         {{ form.hidden_tag() }}
 
+        {# --- Role selection -------------------------------------------- #}
+        <div class="mb-4">
+          <span class="form-label d-block">Register As</span>
+          <div class="segmented">
+            {% for value, label in form.role.choices %}
+              <label>
+                <input type="radio" name="role" value="{{ value }}"
+                       id="role-{{ value }}" data-role="{{ value }}"
+                       {{ 'checked' if form.role.data == value }}>
+                <span class="segment">
+                  {{ icon('user' if value == 'student' else 'users', 15) }}{{ label }}
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+          {% for error in form.role.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        {# --- Common fields --------------------------------------------- #}
         <div class="mb-3">
           {{ form.name.label(class="form-label d-block") }}
           {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""),
@@ -25,7 +48,10 @@
         <div class="mb-3">
           {{ form.email.label(class="form-label d-block") }}
           {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""),
-                        autocomplete="email", placeholder="you@rosp.edu") }}
+                        autocomplete="email", placeholder="you@college.edu") }}
+          <p class="form-text mt-1">
+            Use a real address &mdash; your verification codes are sent here.
+          </p>
           {% for error in form.email.errors %}
             <div class="invalid-feedback d-block">{{ error }}</div>
           {% endfor %}
@@ -33,10 +59,10 @@
 
         <div class="row g-3">
           <div class="col-sm-6">
-            {{ form.roll_no.label(class="form-label d-block") }}
-            {{ form.roll_no(class="form-control" + (" is-invalid" if form.roll_no.errors else ""),
-                            placeholder="e.g. CS21042") }}
-            {% for error in form.roll_no.errors %}
+            {{ form.phone.label(class="form-label d-block") }}
+            {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else ""),
+                          placeholder="Contact number") }}
+            {% for error in form.phone.errors %}
               <div class="invalid-feedback d-block">{{ error }}</div>
             {% endfor %}
           </div>
@@ -48,7 +74,49 @@
               <div class="invalid-feedback d-block">{{ error }}</div>
             {% endfor %}
           </div>
+        </div>
 
+        {# --- Student-only ---------------------------------------------- #}
+        <div class="row g-3 mt-0 role-fields" data-for="student">
+          <div class="col-sm-6">
+            {{ form.roll_no.label(class="form-label d-block") }}
+            {{ form.roll_no(class="form-control" + (" is-invalid" if form.roll_no.errors else ""),
+                            placeholder="e.g. CS21042") }}
+            {% for error in form.roll_no.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# --- Staff-only ------------------------------------------------ #}
+        <div class="row g-3 mt-0 role-fields" data-for="staff">
+          <div class="col-sm-6">
+            {{ form.designation.label(class="form-label d-block") }}
+            {{ form.designation(class="form-select" + (" is-invalid" if form.designation.errors else "")) }}
+            {% for error in form.designation.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-sm-6">
+            {{ form.staff_id.label(class="form-label d-block") }}
+            {{ form.staff_id(class="form-control" + (" is-invalid" if form.staff_id.errors else ""),
+                             placeholder="e.g. EMP1042") }}
+            {% for error in form.staff_id.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-12">
+            <div class="alert alert-info mb-0 d-flex gap-2">
+              <span class="pt-1">{{ icon('shield', 16) }}</span>
+              <div>
+                A staff account must be authorized by an administrator before it
+                can be used. You will be emailed once that happens.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-0">
           <div class="col-sm-6">
             {{ form.password.label(class="form-label d-block") }}
             {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""),
@@ -76,4 +144,32 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /*
+   * Show only the fields that apply to the selected role.
+   *
+   * This is presentation only. The server decides which fields are required,
+   * and re-checks the submitted role against its own allow-list -- hiding an
+   * input in the browser proves nothing.
+   */
+  (function () {
+    var groups = document.querySelectorAll(".role-fields");
+
+    function apply() {
+      var selected = document.querySelector('input[name="role"]:checked');
+      var role = selected ? selected.value : "student";
+      groups.forEach(function (group) {
+        group.classList.toggle("d-none", group.dataset.for !== role);
+      });
+    }
+
+    document.querySelectorAll('input[name="role"]').forEach(function (input) {
+      input.addEventListener("change", apply);
+    });
+    apply();
+  })();
+</script>
 {% endblock %}

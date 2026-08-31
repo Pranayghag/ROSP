@@ -1,0 +1,38 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("Your verification code") }}
+
+  {{ ui.paragraph("Hello " ~ user.name ~ ", use this code to finish signing in to "
+                  ~ app_name ~ ".") }}
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+         style="margin:22px 0;">
+    <tr>
+      <td align="center"
+          style="background-color:#f0f3ff; border:1px solid #c4c6cf;
+                 border-radius:12px; padding:22px;">
+        <div style="font-size:12px; font-weight:600; letter-spacing:0.08em;
+                    text-transform:uppercase; color:#74777f; margin-bottom:8px;">
+          Verification code
+        </div>
+        <div style="font-size:34px; font-weight:700; letter-spacing:0.32em;
+                    color:#002045; font-family:'Courier New',Courier,monospace;">
+          {{ otp_code }}
+        </div>
+        <div style="font-size:13px; color:#43474e; margin-top:10px;">
+          Expires in {{ ttl_minutes }} minute{{ '' if ttl_minutes == 1 else 's' }}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  {{ ui.note("If you did not try to sign in, someone may know your password.
+              Change it as soon as you can, and tell an administrator.
+              This code is single-use and expires on its own.", "warn") }}
+{% endblock %}
+
+{% block footer_note %}
+  Never share this code. {{ app_name }} will never ask you for it.
+{% endblock %}

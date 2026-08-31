@@ -1,0 +1,30 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("Your staff account has been authorized") }}
+
+  {{ ui.paragraph("Hello " ~ staff.name ~ ", an administrator has approved your
+                   " ~ app_name ~ " staff account. You can now sign in.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Email", staff.email, emphasis=true) }}
+    {{ ui.field("Department", staff.department or "Not set") }}
+    {{ ui.field("Designation", staff.designation or "Not set") }}
+    {{ ui.field("Status", ui.pill("AUTHORIZED", "good")) }}
+  {{ ui.details_close() }}
+
+  {{ ui.paragraph("Signing in takes two steps: your email and password, then a
+                   6-digit code we email to this address. Once both are done
+                   you will reach the Staff Dashboard, where the complaints
+                   assigned to you appear.") }}
+
+  {{ ui.button("Log in to " ~ app_name, login_url) }}
+
+  {{ ui.note("This authorization is permanent. You will not need an
+              administrator to approve you again at each sign-in.") }}
+{% endblock %}
+
+{% block footer_note %}
+  We never send passwords by email.
+{% endblock %}

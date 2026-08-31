@@ -1,0 +1,27 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("About your staff registration") }}
+
+  {{ ui.paragraph("Hello " ~ staff.name ~ ", your request for a " ~ app_name ~
+                   " staff account was not approved.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Email", staff.email) }}
+    {{ ui.field("Status", ui.pill(status_label, "bad")) }}
+  {{ ui.details_close() }}
+
+  {% if reason %}
+    <div style="font-size:12px; font-weight:600; letter-spacing:0.04em;
+                text-transform:uppercase; color:#74777f; margin:18px 0 6px;">
+      Note from the administrator
+    </div>
+    <div style="font-size:15px; line-height:23px; color:#111c2c;
+                background-color:#f9f9ff; border:1px solid #e7eeff;
+                border-radius:8px; padding:14px 16px;">{{ reason }}</div>
+  {% endif %}
+
+  {{ ui.paragraph("If you believe this was a mistake, please contact the
+                   administration office directly.") }}
+{% endblock %}

@@ -8,7 +8,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ROSP{% endblock %} &middot; ROSP</title>
+  <title>{% block title %}{{ config.APP_NAME }}{% endblock %} &middot; {{ config.APP_NAME }}</title>
 
 
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
@@ -22,10 +22,10 @@
 <nav class="navbar navbar-expand-lg rosp-navbar sticky-top">
   <div class="container">
     <a class="navbar-brand" href="{{ url_for('main.index') }}">
-      <span class="rosp-brand-mark">RS</span>
+      <span class="rosp-brand-mark">CC</span>
       <span>
-        ROSP
-        <span class="rosp-brand-sub d-none d-sm-inline">Campus Complaints</span>
+        {{ config.APP_NAME }}
+        <span class="rosp-brand-sub d-none d-sm-inline">Complaints &amp; Maintenance</span>
       </span>
     </a>
 
@@ -81,10 +81,28 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link {{ 'active' if ep == 'admin.users' }}"
-                 href="{{ url_for('admin.users') }}">
-                {{ icon('users') }} Users
+              <a class="nav-link {{ 'active' if ep.startswith('admin.staff') }}"
+                 href="{{ url_for('admin.staff_list') }}">
+                {{ icon('users') }} Staff
               </a>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle {{ 'active' if ep in ('admin.users', 'admin.email_log') }}"
+                 href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                {{ icon('list') }} More
+              </a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('admin.users') }}">
+                    {{ icon('user', 16) }} All Users
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('admin.email_log') }}">
+                    {{ icon('inbox', 16) }} Email Log
+                  </a>
+                </li>
+              </ul>
             </li>
           {% endif %}
         </ul>
@@ -159,7 +177,7 @@
 
 <footer class="rosp-footer py-3 mt-auto">
   <div class="container d-flex flex-wrap justify-content-between gap-2">
-    <span>ROSP &middot; Campus Complaint Management System</span>
+    <span>{{ config.APP_NAME }} &middot; {{ config.APP_TAGLINE }}</span>
     <span>Open source (MIT) &middot; {{ current_year }}</span>
   </div>
 </footer>

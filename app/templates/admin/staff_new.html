@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% block title %}Add New Staff{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 680px;">
+
+  <a href="{{ url_for('admin.staff_list') }}" class="btn btn-ghost btn-sm ps-0 mb-2">
+    {{ icon('arrow-left', 16) }} Back to staff
+  </a>
+
+  <div class="page-head">
+    <div>
+      <h1>Add New Staff</h1>
+      <p class="page-sub">
+        Creates an already-authorized account and emails them a link to set
+        their own password.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body p-4">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+          {{ form.name.label(class="form-label d-block") }}
+          {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""),
+                       autofocus=true, placeholder="Full name") }}
+          {% for error in form.name.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          {{ form.email.label(class="form-label d-block") }}
+          {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""),
+                        placeholder="their.real.address@college.edu") }}
+          <p class="form-text mt-1">{{ form.email.description }}</p>
+          {% for error in form.email.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="row g-3">
+          <div class="col-sm-6">
+            {{ form.phone.label(class="form-label d-block") }}
+            {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else ""),
+                          placeholder="Contact number") }}
+            {% for error in form.phone.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-sm-6">
+            {{ form.staff_id.label(class="form-label d-block") }}
+            {{ form.staff_id(class="form-control" + (" is-invalid" if form.staff_id.errors else ""),
+                             placeholder="e.g. EMP1042") }}
+            {% for error in form.staff_id.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-sm-6">
+            {{ form.department.label(class="form-label d-block") }}
+            {{ form.department(class="form-control" + (" is-invalid" if form.department.errors else ""),
+                               placeholder="e.g. Electrical") }}
+            {% for error in form.department.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-sm-6">
+            {{ form.designation.label(class="form-label d-block") }}
+            {{ form.designation(class="form-select" + (" is-invalid" if form.designation.errors else "")) }}
+            {% for error in form.designation.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-sm-6">
+            {{ form.role.label(class="form-label d-block") }}
+            {{ form.role(class="form-select" + (" is-invalid" if form.role.errors else "")) }}
+            {% for error in form.role.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="alert alert-info mt-4 d-flex gap-2">
+          <span class="pt-1">{{ icon('shield', 16) }}</span>
+          <div class="body-sm">
+            <strong>No password is set here.</strong>
+            The account is created authorized but without a usable password.
+            They receive a signed, expiring link and choose their own, so no
+            credential passes through you or through email.
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mt-4">
+          <a href="{{ url_for('admin.staff_list') }}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            {{ icon('user-plus', 16) }} Create Account
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

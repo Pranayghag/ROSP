@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% from "partials/_icons.html" import icon with context %}
+{% from "partials/_macros.html" import detail_row, empty_state with context %}
+{% block title %}{{ staff.name }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('admin.staff_list') }}" class="btn btn-ghost btn-sm ps-0 mb-2">
+  {{ icon('arrow-left', 16) }} Back to staff
+</a>
+
+<div class="page-head">
+  <div>
+    <h1>{{ staff.name }}</h1>
+    <p class="page-sub">{{ staff.designation or 'Staff' }}
+      {%- if staff.department %} &middot; {{ staff.department }}{% endif %}</p>
+  </div>
+  <span class="pill pill-dot pill-{{ AUTHORIZATION_COLOURS.get(staff.authorization_status, 'secondary') }} ms-auto">
+    {{ AUTHORIZATION_LABELS.get(staff.authorization_status, staff.authorization_status) }}
+  </span>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+
+    <div class="card mb-4">
+      <div class="card-header">{{ icon('user', 20) }} Profile</div>
+      <div class="card-body pt-0">
+        {{ detail_row('inbox', 'Email', staff.email) }}
+        {{ detail_row('bell', 'Phone', staff.phone or 'Not provided',
+                      empty=not staff.phone) }}
+        {{ detail_row('pin', 'Department', staff.department or 'Not provided',
+                      empty=not staff.department) }}
+        {{ detail_row('tag', 'Designation', staff.designation or 'Not provided',
+                      empty=not staff.designation) }}
+        {{ detail_row('file', 'Staff ID', staff.staff_id or 'Not provided',
+                      empty=not staff.staff_id) }}
+        {{ detail_row('shield', 'Role', staff.role|title) }}
+        {{ detail_row('calendar', 'Registered',
+                      staff.created_at|datetime('%d %b %Y at %H:%M')) }}
+        {% if staff.authorized_at %}
+          {{ detail_row('check', 'Decision made',
+                        staff.authorized_at|datetime('%d %b %Y at %H:%M')) }}
+        {% endif %}
+        {{ detail_row('zap', 'Password set',
+                      'Yes' if staff.password_set else 'Not yet',
+                      empty=not staff.password_set) }}
+      </div>
+    </div>
+
+    {% if staff.authorization_note %}
+      <div class="alert alert-info d-flex gap-2 mb-4">
+        <span class="pt-1">{{ icon('note', 16) }}</span>
+        <div>
+          <strong>Note on file.</strong> {{ staff.authorization_note }}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">
+        {{ icon('list', 20) }} Assigned complaints
+        <span class="file-count">{{ open_count }} open / {{ assigned|length }} total</span>
+      </div>
+      {% if assigned %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr><th>Code</th><th>Title</th><th>Status</th><th>Assigned</th></tr>
+            </thead>
+            <tbody>
+              {% for complaint in assigned[:10] %}
+                <tr>
+                  <td><a href="{{ url_for('complaints.detail', complaint_id=complaint.id) }}"
+                         class="complaint-code">{{ complaint.code }}</a></td>
+                  <td>{{ complaint.title }}</td>
+                  <td>
+                    <span class="pill pill-dot pill-{{ STATUS_COLOURS.get(complaint.status, 'secondary') }}">
+                      {{ STATUS_LABELS.get(complaint.status, complaint.status) }}
+                    </span>
+                  </td>
+                  <td class="text-muted">{{ complaint.updated_at|since }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {{ empty_state('inbox', 'No complaints assigned yet.') }}
+      {% endif %}
+    </div>
+
+  </div>
+
+  <div class="col-lg-5">
+
+    <div class="card mb-4">
+      <div class="card-header">{{ icon('shield', 20) }} Authorization</div>
+      <div class="card-body">
+
+        {% if staff.id == current_user.id %}
+          <div class="alert alert-warning mb-0 d-flex gap-2">
+            <span class="pt-1">{{ icon('alert', 16) }}</span>
+            <div>You cannot change your own authorization status.</div>
+          </div>
+        {% else %}
+          <p class="body-sm text-muted">
+            A decision here is permanent until you change it again. Signing in
+            never resets it, so an authorized staff member is not asked for
+            approval more than once.
+          </p>
+
+          <form method="post"
+                action="{{ url_for('admin.staff_decision', user_id=staff.id) }}"
+                novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">
+              {{ form.decision.label(class="form-label d-block") }}
+              {{ form.decision(class="form-select") }}
+            </div>
+
+            <div class="mb-3">
+              {{ form.note.label(class="form-label d-block") }}
+              {{ form.note(class="form-control", rows=3,
+                           placeholder="Optional. Included in the email to them.") }}
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">
+              {{ icon('check', 16) }} Apply Decision
+            </button>
+          </form>
+
+          <p class="label-sm text-faint mt-3 mb-0">
+            Authorizing emails them a confirmation. Rejecting or suspending
+            emails them the note above.
+          </p>
+        {% endif %}
+
+      </div>
+    </div>
+
+    {% if not staff.password_set %}
+      <div class="card mb-4">
+        <div class="card-header">{{ icon('zap', 20) }} Account setup</div>
+        <div class="card-body">
+          <p class="body-sm text-muted">
+            This account has no password yet. The setup link expires; send a
+            fresh one if they missed it.
+          </p>
+          <form method="post"
+                action="{{ url_for('admin.staff_resend_setup', user_id=staff.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-secondary w-100">
+              {{ icon('refresh', 16) }} Resend setup link
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">
+        {{ icon('inbox', 20) }} Recent email
+        <a href="{{ url_for('admin.email_log') }}"
+           class="file-count text-decoration-none">Full log</a>
+      </div>
+      {% if recent_email %}
+        <ul class="list-group list-group-flush">
+          {% for log in recent_email %}
+            <li class="list-group-item">
+              <div class="d-flex align-items-start gap-2">
+                <span class="pill pill-{{ 'success' if log.was_delivered else ('danger' if log.status == 'FAILED' else 'secondary') }}">
+                  {{ log.status }}
+                </span>
+                <div class="flex-grow-1 body-sm">
+                  {{ log.subject }}
+                  <div class="label-sm text-faint">{{ log.created_at|since }}</div>
+                  {% if log.error %}
+                    <div class="label-sm" style="color: var(--error);">{{ log.error }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {{ empty_state('inbox', 'No email sent to this account yet.') }}
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

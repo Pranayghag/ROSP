@@ -1,0 +1,96 @@
+{#
+  Email building blocks, imported by each message:
+
+      {% import "email/_components.html" as ui %}
+
+  Kept separate from _base.html because macros defined in a parent template are
+  not reliably visible inside a child's blocks.
+#}
+
+{# A tappable button. Tables rather than padded anchors, for Outlook. #}
+{% macro button(label, href, style='primary') -%}
+  <table role="presentation" cellpadding="0" cellspacing="0"
+         style="margin:6px 8px 6px 0; display:inline-table;">
+    <tr>
+      <td style="background-color:{{ '#002045' if style == 'primary' else '#ffffff' }};
+                 border:1px solid #002045; border-radius:999px;">
+        <a href="{{ href }}"
+           style="display:inline-block; padding:11px 26px; font-size:14px;
+                  font-weight:600; letter-spacing:0.02em; text-decoration:none;
+                  color:{{ '#ffffff' if style == 'primary' else '#002045' }};">
+          {{ label }}
+        </a>
+      </td>
+    </tr>
+  </table>
+{%- endmacro %}
+
+
+{# One label/value row inside a details table. #}
+{% macro field(label, value, emphasis=false) -%}
+  <tr>
+    <td style="padding:7px 0; border-bottom:1px solid #e7eeff;
+               font-size:12px; font-weight:600; letter-spacing:0.04em;
+               text-transform:uppercase; color:#74777f; width:42%;
+               vertical-align:top;">{{ label }}</td>
+    <td style="padding:7px 0; border-bottom:1px solid #e7eeff; font-size:14px;
+               color:#111c2c;{{ ' font-weight:600;' if emphasis }}
+               vertical-align:top;">{{ value }}</td>
+  </tr>
+{%- endmacro %}
+
+
+{% macro details_open() -%}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+         style="margin:18px 0; border-collapse:collapse;">
+{%- endmacro %}
+
+{% macro details_close() -%}
+  </table>
+{%- endmacro %}
+
+
+{# A coloured status chip. #}
+{% macro pill(text, tone='neutral') -%}
+  {%- set tones = {
+    'neutral': ('#f1f5f9', '#475569'),
+    'pending': ('#fef3c7', '#b45309'),
+    'active':  ('#dbeafe', '#1d4ed8'),
+    'good':    ('#d1fae5', '#047857'),
+    'bad':     ('#ffdad6', '#93000a')
+  } -%}
+  {%- set tone_pair = tones.get(tone, tones['neutral']) -%}
+  <span style="display:inline-block; padding:3px 12px; border-radius:999px;
+               background-color:{{ tone_pair[0] }}; color:{{ tone_pair[1] }};
+               font-size:12px; font-weight:700; letter-spacing:0.03em;">{{ text }}</span>
+{%- endmacro %}
+
+
+{# Section heading inside the message body. #}
+{% macro heading(text) -%}
+  <h2 style="margin:0 0 12px; font-size:18px; font-weight:600; color:#111c2c;">
+    {{ text }}
+  </h2>
+{%- endmacro %}
+
+
+{% macro paragraph(text) -%}
+  <p style="margin:0 0 14px; font-size:15px; line-height:23px; color:#43474e;">
+    {{ text }}
+  </p>
+{%- endmacro %}
+
+
+{# A callout box for warnings or reminders. #}
+{% macro note(text, tone='info') -%}
+  {%- set bg = '#fef3c7' if tone == 'warn' else '#f0f3ff' -%}
+  {%- set edge = '#b45309' if tone == 'warn' else '#002045' -%}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+         style="margin:16px 0;">
+    <tr>
+      <td style="background-color:{{ bg }}; border-left:3px solid {{ edge }};
+                 padding:12px 16px; border-radius:0 8px 8px 0; font-size:13px;
+                 line-height:20px; color:#43474e;">{{ text }}</td>
+    </tr>
+  </table>
+{%- endmacro %}

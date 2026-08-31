@@ -1,0 +1,31 @@
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("New staff registration") }}
+
+  {{ ui.paragraph("A new staff member has registered and is waiting for your
+                   authorization. They cannot sign in or see any complaint
+                   until you approve them.") }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Name", staff.name, emphasis=true) }}
+    {{ ui.field("Email", staff.email) }}
+    {{ ui.field("Phone", staff.phone or "Not provided") }}
+    {{ ui.field("Department", staff.department or "Not provided") }}
+    {{ ui.field("Designation", staff.designation or "Not provided") }}
+    {{ ui.field("Staff ID", staff.staff_id or "Not provided") }}
+    {{ ui.field("Registration Date", registered_at) }}
+    {{ ui.field("Status", ui.pill("PENDING", "pending")) }}
+  {{ ui.details_close() }}
+
+  {{ ui.button("Review Staff Registration", review_url) }}
+
+  {{ ui.note("You must be signed in as an administrator to act on this. The
+              link opens the Staff Management page -- it does not authorize
+              anyone by itself, and it carries no credentials.") }}
+{% endblock %}
+
+{% block footer_note %}
+  Sent because this address is configured as ADMIN_EMAIL.
+{% endblock %}

@@ -12,7 +12,14 @@ from datetime import UTC, datetime
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from .constants import AttachmentType, Priority, Role, Status
+from .constants import (
+    AUTHORIZATION_MESSAGES,
+    AttachmentType,
+    AuthorizationStatus,
+    Priority,
+    Role,
+    Status,
+)
 from .extensions import db, login_manager
 
 
@@ -42,6 +49,32 @@ class User(UserMixin, db.Model):
     roll_no = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
+    # --- Staff profile ----------------------------------------------------
+    phone = db.Column(db.String(30))
+    designation = db.Column(db.String(60))
+    staff_id = db.Column(db.String(50))
+
+    # --- Authorization ----------------------------------------------------
+    #: Students are AUTHORIZED on creation; staff start PENDING and must be
+    #: approved by an administrator. Set once and stored permanently -- signing
+    #: in never changes it.
+    authorization_status = db.Column(
+        db.String(20),
+        nullable=False,
+        default=AuthorizationStatus.AUTHORIZED,
+        index=True,
+    )
+    authorized_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+    authorized_at = db.Column(db.DateTime)
+    #: Why an admin rejected or suspended the account, shown back to them.
+    authorization_note = db.Column(db.String(500))
+
+    #: True once the account holder has chosen their own password. Accounts
+    #: created by an admin start False and are sent a one-time setup link.
+    password_set = db.Column(db.Boolean, nullable=False, default=True)
+
+    authorizer = db.relationship("User", remote_side=[id], foreign_keys=[authorized_by])
+
     complaints = db.relationship(
         "Complaint",
         back_populates="student",
@@ -57,7 +90,16 @@ class User(UserMixin, db.Model):
     # --- Passwords --------------------------------------------------------
     def set_password(self, raw_password: str) -> None:
         """Store a salted PBKDF2 hash. The plaintext is never persisted."""
-        self.password_hash = generate_password_hash(raw_password)
+        from flask import current_app, has_app_context
+
+        method = (
+            current_app.config.get("PASSWORD_HASH_METHOD") if has_app_context() else None
+        )
+        self.password_hash = (
+            generate_password_hash(raw_password, method=method)
+            if method
+            else generate_password_hash(raw_password)
+        )
 
     def check_password(self, raw_password: str) -> bool:
         return check_password_hash(self.password_hash, raw_password)
@@ -74,6 +116,30 @@ class User(UserMixin, db.Model):
     @property
     def is_admin(self) -> bool:
         return self.role == Role.ADMIN
+
+    # --- Authorization helpers -------------------------------------------
+    @property
+    def is_authorized(self) -> bool:
+        """Whether this account may be used at all."""
+        return self.authorization_status == AuthorizationStatus.AUTHORIZED
+
+    @property
+    def is_pending(self) -> bool:
+        return self.authorization_status == AuthorizationStatus.PENDING
+
+    @property
+    def blocked_reason(self) -> str | None:
+        """Message to show someone who cannot sign in, or None if they can."""
+        if self.is_authorized:
+            return None
+        return AUTHORIZATION_MESSAGES.get(
+            self.authorization_status, "This account cannot be used."
+        )
+
+    @property
+    def can_be_assigned(self) -> bool:
+        """Only authorized staff may receive complaints."""
+        return self.role in (Role.STAFF, Role.ADMIN) and self.is_authorized
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<User {self.email} ({self.role})>"
@@ -144,6 +210,12 @@ class Complaint(db.Model):
     due_at = db.Column(db.DateTime)
     #: Set the first time the complaint is escalated for breaching its SLA.
     escalated_at = db.Column(db.DateTime)
+
+    # --- Resolution -------------------------------------------------------
+    #: What the staff member did, written when they mark the work resolved.
+    resolution_note = db.Column(db.Text)
+    #: Why the student said the problem was not actually fixed.
+    reopen_reason = db.Column(db.String(500))
 
     category = db.relationship("Category", back_populates="complaints")
     location = db.relationship("Location", back_populates="complaints")
@@ -317,3 +389,83 @@ class Notification(db.Model):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Notification to {self.user_id}: {self.message[:30]}>"
+
+
+class OtpCode(db.Model):
+    """A one-time password issued during two-step verification.
+
+    The code itself is never stored. Only a salted hash is kept, so a database
+    leak cannot be replayed, and the plaintext exists only in the email that
+    was sent and in memory for the length of one request.
+    """
+
+    __tablename__ = "otp_codes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id"), nullable=False, index=True
+    )
+    otp_hash = db.Column(db.String(255), nullable=False)
+    purpose = db.Column(db.String(30), nullable=False, default="LOGIN", index=True)
+
+    expires_at = db.Column(db.DateTime, nullable=False)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    used = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    consumed_at = db.Column(db.DateTime)
+
+    user = db.relationship("User")
+
+    @property
+    def is_expired(self) -> bool:
+        return _as_utc(self.expires_at) < utcnow()
+
+    @property
+    def is_usable(self) -> bool:
+        """A code can be checked only while unused, unexpired and under budget."""
+        from flask import current_app
+
+        max_attempts = current_app.config.get("OTP_MAX_ATTEMPTS", 5)
+        return not self.used and not self.is_expired and self.attempts < max_attempts
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<OtpCode user={self.user_id} used={self.used}>"
+
+
+class EmailLog(db.Model):
+    """Record of every message the application tried to send.
+
+    Written whether or not delivery succeeded, and whether or not SMTP is
+    configured at all, so it is always possible to answer "was this actually
+    sent?" honestly. Bodies are not stored -- only metadata.
+    """
+
+    __tablename__ = "email_logs"
+
+    #: Delivery outcomes.
+    SENT = "SENT"
+    FAILED = "FAILED"
+    NOT_CONFIGURED = "NOT_CONFIGURED"
+
+    id = db.Column(db.Integer, primary_key=True)
+    to_address = db.Column(db.String(190), nullable=False, index=True)
+    subject = db.Column(db.String(255), nullable=False)
+    template = db.Column(db.String(60))
+    status = db.Column(db.String(20), nullable=False, index=True)
+    error = db.Column(db.String(500))
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    complaint_id = db.Column(
+        db.Integer, db.ForeignKey("complaints.id", ondelete="SET NULL")
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
+
+    user = db.relationship("User")
+    complaint = db.relationship("Complaint")
+
+    @property
+    def was_delivered(self) -> bool:
+        return self.status == EmailLog.SENT
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<EmailLog {self.status} to={self.to_address}>"

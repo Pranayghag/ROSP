@@ -4,7 +4,13 @@
 
 {% block content %}
 <div class="page-head">
-  <h1>Users</h1>
+  <div>
+    <h1>Users</h1>
+    <p class="page-sub">Everyone with an account, across all roles.</p>
+  </div>
+  <a href="{{ url_for('admin.staff_list') }}" class="btn btn-outline-secondary ms-auto">
+    {{ icon('users', 16) }} Staff Management
+  </a>
 </div>
 
 <div class="card">
@@ -12,8 +18,9 @@
     <table class="table table-hover align-middle mb-0">
       <thead>
         <tr>
-          <th>Name</th><th>Email</th><th>Role</th><th>Department</th>
-          <th>Roll No</th><th>Filed</th><th>Assigned</th><th>Joined</th>
+          <th>Name</th><th>Email</th><th>Role</th><th>Authorization</th>
+          <th>Department</th><th>Roll No</th><th>Filed</th><th>Assigned</th>
+          <th>Joined</th>
         </tr>
       </thead>
       <tbody>
@@ -25,6 +32,15 @@
               <span class="pill pill-{{ 'danger' if user.is_admin else ('info' if user.is_staff else 'secondary') }}">
                 {{ user.role }}
               </span>
+            </td>
+            <td>
+              {% if user.is_student %}
+                <span class="text-faint">--</span>
+              {% else %}
+                <span class="pill pill-dot pill-{{ AUTHORIZATION_COLOURS.get(user.authorization_status, 'secondary') }}">
+                  {{ AUTHORIZATION_LABELS.get(user.authorization_status, user.authorization_status) }}
+                </span>
+              {% endif %}
             </td>
             <td>{{ user.department or '--' }}</td>
             <td>{{ user.roll_no or '--' }}</td>
@@ -39,18 +55,26 @@
 </div>
 
 <div class="card mt-4">
-  <div class="card-header">{{ icon('user-plus', 20) }} Creating staff and admin accounts</div>
+  <div class="card-header">{{ icon('user-plus', 20) }} Creating accounts</div>
   <div class="card-body">
-    <p class="body-sm">
-      Self-registration always creates a student account. To add a staff member
-      or another administrator, use the Flask shell:
+    <p class="body-sm mb-3">
+      Self-registration always creates a <strong>student</strong>; an
+      administrator account can never be created that way. Staff who register
+      themselves arrive as <strong>Pending</strong> and appear in Staff
+      Management for approval.
     </p>
-    <pre class="mb-0 p-3" style="background: var(--surface-low); border-radius: var(--radius-lg); font-size: 13px;"><code>flask shell
-&gt;&gt;&gt; from app.extensions import db
-&gt;&gt;&gt; from app.models import User
-&gt;&gt;&gt; u = User(name="Name", email="staff@rosp.edu", role="staff", department="Electrical")
-&gt;&gt;&gt; u.set_password("ChangeMe@123")
-&gt;&gt;&gt; db.session.add(u); db.session.commit()</code></pre>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{{ url_for('admin.staff_new') }}" class="btn btn-primary">
+        {{ icon('plus', 16) }} Add New Staff
+      </a>
+      <a href="{{ url_for('admin.staff_list') }}" class="btn btn-outline-secondary">
+        {{ icon('users', 16) }} Staff Management
+      </a>
+    </div>
+    <p class="label-sm text-faint mt-3 mb-0">
+      To create another administrator, run
+      <code>python scripts/create_admin.py --email them@college.edu</code>
+    </p>
   </div>
 </div>
 {% endblock %}

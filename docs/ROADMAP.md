@@ -1,6 +1,6 @@
 # Roadmap
 
-Where ROSP could go next. Nothing here is committed work — treat it as a list of
+Where CampusCare could go next. Nothing here is committed work — treat it as a list of
 good issues to pick up. Please open an issue before starting anything large.
 
 ---

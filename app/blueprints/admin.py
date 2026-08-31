@@ -5,33 +5,50 @@ Covers Phase 7 (admin dashboard), Phase 9 (assignment) and Phase 15 (analytics).
 
 from __future__ import annotations
 
+import secrets
 from datetime import timedelta
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
-from ..constants import Priority, Role, Status
+from ..constants import AuthorizationStatus, Priority, Role, Status
 from ..decorators import admin_required
 from ..extensions import db
-from ..forms import AssignForm
-from ..models import Attachment, Category, Complaint, User, _as_utc, utcnow
-from ..services import notifications
+from ..forms import AssignForm, StaffCreateForm, StaffDecisionForm
+from ..models import Attachment, Category, Complaint, EmailLog, User, _as_utc, utcnow
+from ..services import mailers, notifications
+from ..services.email import absolute_url
 from ..services.sla import escalate_overdue, overdue_complaints
+from ..services.tokens import generate_setup_token
 from ..services.workflow import WorkflowError, assign
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
 def _staff_choices() -> list[tuple[int, str]]:
+    """Staff who may be given a complaint.
+
+    Only AUTHORIZED accounts appear. A PENDING, REJECTED or SUSPENDED staff
+    member must never be assignable -- they cannot sign in to act on the work,
+    and assigning to them would silently strand the complaint.
+    """
     staff = db.session.scalars(
         select(User)
-        .where(User.role.in_([Role.STAFF, Role.ADMIN]))
+        .where(
+            User.role.in_([Role.STAFF, Role.ADMIN]),
+            User.authorization_status == AuthorizationStatus.AUTHORIZED,
+        )
         .order_by(User.name)
     ).all()
     return [
-        (member.id, f"{member.name}" + (f" - {member.department}" if member.department else ""))
+        (
+            member.id,
+            member.name
+            + (f" - {member.designation}" if member.designation else "")
+            + (f" ({member.department})" if member.department else ""),
+        )
         for member in staff
     ]
 
@@ -130,8 +147,25 @@ def assign_complaint(complaint_id: int):
                 f"{complaint.code} has been assigned to {staff.name}.",
                 complaint,
             )
+            # Full complaint details, with the evidence photos embedded.
+            log = mailers.notify_staff_assigned(complaint, staff)
             db.session.commit()
-            flash(f"{complaint.code} assigned to {staff.name}.", "success")
+
+            if log and log.was_delivered:
+                flash(
+                    f"{complaint.code} assigned to {staff.name}, who has been "
+                    f"emailed at {staff.email}.",
+                    "success",
+                )
+            else:
+                # Say plainly that the email did not go out. The assignment
+                # itself is saved either way.
+                flash(
+                    f"{complaint.code} assigned to {staff.name}, but the "
+                    f"notification email could NOT be sent. They have an "
+                    f"in-app notification.",
+                    "warning",
+                )
             return redirect(url_for("complaints.detail", complaint_id=complaint.id))
         except WorkflowError as exc:
             db.session.rollback()
@@ -226,3 +260,256 @@ def users():
     """Directory of accounts, so an admin can see who can be assigned work."""
     everyone = db.session.scalars(select(User).order_by(User.role, User.name)).all()
     return render_template("admin/users.html", users=everyone)
+
+
+# ==========================================================================
+# Staff management
+# ==========================================================================
+
+
+@bp.route("/staff")
+@login_required
+@admin_required
+def staff_list():
+    """Every staff account, filterable by authorization status."""
+    query = select(User).where(User.role.in_([Role.STAFF, Role.ADMIN]))
+
+    status_filter = request.args.get("status", "").upper()
+    search = (request.args.get("q") or "").strip()
+
+    if status_filter in AuthorizationStatus.ALL:
+        query = query.where(User.authorization_status == status_filter)
+
+    if search:
+        # Parameterised by SQLAlchemy; the raw string never reaches the SQL.
+        pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                User.name.ilike(pattern),
+                User.email.ilike(pattern),
+                User.staff_id.ilike(pattern),
+                User.department.ilike(pattern),
+                User.designation.ilike(pattern),
+            )
+        )
+
+    staff = db.session.scalars(
+        query.order_by(User.authorization_status, User.name)
+    ).all()
+
+    # Counts for the filter chips, independent of the current filter.
+    rows = db.session.execute(
+        select(User.authorization_status, func.count(User.id))
+        .where(User.role.in_([Role.STAFF, Role.ADMIN]))
+        .group_by(User.authorization_status)
+    ).all()
+    counts = {status: 0 for status in AuthorizationStatus.ALL}
+    for status, count in rows:
+        counts[status] = count
+    counts["TOTAL"] = sum(counts[s] for s in AuthorizationStatus.ALL)
+
+    return render_template(
+        "admin/staff_list.html",
+        staff=staff,
+        counts=counts,
+        status_filter=status_filter,
+        search=search,
+    )
+
+
+def _load_staff(user_id: int) -> User | None:
+    user = db.session.get(User, user_id)
+    if user is None or user.role not in (Role.STAFF, Role.ADMIN):
+        return None
+    return user
+
+
+@bp.route("/staff/<int:user_id>")
+@login_required
+@admin_required
+def staff_detail(user_id: int):
+    """One staff member's profile, with the authorize/reject controls.
+
+    This is the page the "Review Staff Registration" link in the admin email
+    opens. It requires an authenticated admin session -- the emailed link
+    carries no credentials and grants nothing by itself.
+    """
+    staff = _load_staff(user_id)
+    if staff is None:
+        flash("No such staff account.", "warning")
+        return redirect(url_for("admin.staff_list"))
+
+    form = StaffDecisionForm(decision=staff.authorization_status)
+
+    assigned = db.session.scalars(
+        select(Complaint)
+        .where(Complaint.assigned_staff_id == staff.id)
+        .order_by(Complaint.created_at.desc())
+    ).all()
+
+    recent_email = db.session.scalars(
+        select(EmailLog)
+        .where(EmailLog.user_id == staff.id)
+        .order_by(EmailLog.created_at.desc())
+        .limit(5)
+    ).all()
+
+    return render_template(
+        "admin/staff_detail.html",
+        staff=staff,
+        form=form,
+        assigned=assigned,
+        open_count=sum(1 for c in assigned if c.is_open),
+        recent_email=recent_email,
+    )
+
+
+@bp.route("/staff/<int:user_id>/decision", methods=["POST"])
+@login_required
+@admin_required
+def staff_decision(user_id: int):
+    """Authorize, reject, suspend or re-pend a staff account.
+
+    The decision is stored permanently. Nothing in the sign-in path ever
+    changes it, so an authorized staff member is never asked to be approved
+    again -- only another explicit action here can change their status.
+    """
+    staff = _load_staff(user_id)
+    if staff is None:
+        flash("No such staff account.", "warning")
+        return redirect(url_for("admin.staff_list"))
+
+    if staff.id == current_user.id:
+        flash("You cannot change your own authorization status.", "danger")
+        return redirect(url_for("admin.staff_detail", user_id=staff.id))
+
+    form = StaffDecisionForm()
+    if not form.validate_on_submit():
+        flash("That decision was not understood.", "danger")
+        return redirect(url_for("admin.staff_detail", user_id=staff.id))
+
+    decision = form.decision.data
+    note = (form.note.data or "").strip() or None
+    previous = staff.authorization_status
+
+    staff.authorization_status = decision
+    staff.authorization_note = note
+    staff.authorized_by = current_user.id
+    staff.authorized_at = utcnow()
+
+    log = None
+    if decision == AuthorizationStatus.AUTHORIZED and previous != decision:
+        notifications.notify(
+            staff.id, "Your staff account has been authorized. You can now sign in."
+        )
+        log = mailers.notify_staff_authorized(staff)
+    elif decision in (AuthorizationStatus.REJECTED, AuthorizationStatus.SUSPENDED):
+        notifications.notify(staff.id, f"Your staff account is now {decision.lower()}.")
+        log = mailers.notify_staff_rejected(staff, note)
+
+    db.session.commit()
+
+    message = f"{staff.name} is now {decision.title()}."
+    if log is not None and not log.was_delivered:
+        flash(f"{message} The notification email could NOT be sent.", "warning")
+    else:
+        flash(message, "success")
+
+    return redirect(url_for("admin.staff_detail", user_id=staff.id))
+
+
+@bp.route("/staff/new", methods=["GET", "POST"])
+@login_required
+@admin_required
+def staff_new():
+    """Create a staff account directly.
+
+    No password is chosen here. The account is created already AUTHORIZED but
+    with ``password_set=False``, and the staff member receives a signed,
+    expiring link to set their own -- so no credential is ever typed by the
+    admin or carried in an email.
+    """
+    form = StaffCreateForm()
+
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+
+        if db.session.scalar(select(User).where(User.email == email)):
+            flash("An account with that email already exists.", "warning")
+            return render_template("admin/staff_new.html", form=form)
+
+        staff = User(
+            name=form.name.data.strip(),
+            email=email,
+            role=form.role.data,
+            phone=form.phone.data.strip(),
+            department=form.department.data.strip(),
+            designation=form.designation.data,
+            staff_id=(form.staff_id.data or "").strip() or None,
+            authorization_status=AuthorizationStatus.AUTHORIZED,
+            authorized_by=current_user.id,
+            authorized_at=utcnow(),
+            password_set=False,
+        )
+        # A random unusable placeholder: the column is NOT NULL, and this value
+        # can never be guessed or used to sign in.
+        staff.set_password(secrets.token_urlsafe(32))
+        db.session.add(staff)
+        db.session.flush()
+
+        setup_url = absolute_url(
+            "auth.setup_account", token=generate_setup_token(staff)
+        )
+        log = mailers.notify_staff_account_created(staff, setup_url)
+        db.session.commit()
+
+        if log and log.was_delivered:
+            flash(
+                f"Account created. A setup link has been emailed to {staff.email}.",
+                "success",
+            )
+        else:
+            flash(
+                f"Account created for {staff.email}, but the setup email could "
+                f"NOT be sent. Use 'Resend setup link' once mail is working.",
+                "warning",
+            )
+        return redirect(url_for("admin.staff_detail", user_id=staff.id))
+
+    return render_template("admin/staff_new.html", form=form)
+
+
+@bp.route("/staff/<int:user_id>/resend-setup", methods=["POST"])
+@login_required
+@admin_required
+def staff_resend_setup(user_id: int):
+    """Send a fresh account-setup link."""
+    staff = _load_staff(user_id)
+    if staff is None:
+        flash("No such staff account.", "warning")
+        return redirect(url_for("admin.staff_list"))
+
+    if staff.password_set:
+        flash(f"{staff.name} has already set a password.", "info")
+        return redirect(url_for("admin.staff_detail", user_id=staff.id))
+
+    setup_url = absolute_url("auth.setup_account", token=generate_setup_token(staff))
+    log = mailers.notify_staff_account_created(staff, setup_url)
+    db.session.commit()
+
+    if log and log.was_delivered:
+        flash(f"A new setup link was emailed to {staff.email}.", "success")
+    else:
+        flash("The setup email could NOT be sent. Check the mail settings.", "danger")
+    return redirect(url_for("admin.staff_detail", user_id=staff.id))
+
+
+@bp.route("/email-log")
+@login_required
+@admin_required
+def email_log():
+    """What the application actually tried to send, and whether it worked."""
+    logs = db.session.scalars(
+        select(EmailLog).order_by(EmailLog.created_at.desc()).limit(200)
+    ).all()
+    return render_template("admin/email_log.html", logs=logs)

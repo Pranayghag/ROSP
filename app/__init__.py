@@ -15,10 +15,13 @@ from config import get_config
 
 from .constants import (
     ATTACHMENT_TYPE_LABELS,
+    AUTHORIZATION_COLOURS,
+    AUTHORIZATION_LABELS,
     PRIORITY_COLOURS,
     STATUS_COLOURS,
     STATUS_LABELS,
     AttachmentType,
+    AuthorizationStatus,
     Priority,
     Role,
     Status,
@@ -103,20 +106,27 @@ def _register_template_helpers(app: Flask) -> None:
 
     @app.context_processor
     def inject_globals():
-        """Expose shared vocabulary and helpers to every template."""
+        """Expose shared vocabulary and helpers to every template.
+
+        This also runs when an email template is rendered from a CLI script,
+        where there is no logged-in user and ``current_user`` is None rather
+        than an anonymous user -- hence the defensive getattr.
+        """
+        signed_in = getattr(current_user, "is_authenticated", False)
         return {
             "Status": Status,
             "Priority": Priority,
             "Role": Role,
             "AttachmentType": AttachmentType,
+            "AuthorizationStatus": AuthorizationStatus,
             "STATUS_LABELS": STATUS_LABELS,
             "STATUS_COLOURS": STATUS_COLOURS,
             "PRIORITY_COLOURS": PRIORITY_COLOURS,
             "ATTACHMENT_TYPE_LABELS": ATTACHMENT_TYPE_LABELS,
+            "AUTHORIZATION_LABELS": AUTHORIZATION_LABELS,
+            "AUTHORIZATION_COLOURS": AUTHORIZATION_COLOURS,
             "unread_notifications": (
-                notifications.unread_count(current_user)
-                if current_user.is_authenticated
-                else 0
+                notifications.unread_count(current_user) if signed_in else 0
             ),
             "max_photos": app.config["MAX_FILES_PER_COMPLAINT"],
             "max_photo_mb": app.config["MAX_FILE_SIZE_MB"],

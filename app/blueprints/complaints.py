@@ -25,7 +25,7 @@ from ..constants import AttachmentType, Status
 from ..extensions import db
 from ..forms import ComplaintForm
 from ..models import Category, Complaint, Location
-from ..services import notifications, suggestions
+from ..services import mailers, notifications, suggestions
 from ..services.sla import apply_sla
 from ..services.uploads import UploadError, store_evidence
 from ..services.workflow import (
@@ -191,10 +191,33 @@ def update_status(complaint_id: int):
     new_status = (request.form.get("status") or "").upper()
     note = (request.form.get("note") or "").strip() or None
 
+    email_log = None
+
     try:
+        # --- Staff finishing the work ------------------------------------
+        if new_status == Status.RESOLVED:
+            resolution_note = (request.form.get("resolution_note") or "").strip()
+            if len(resolution_note) < 10:
+                flash(
+                    "Describe what you did before marking the complaint resolved "
+                    "(at least 10 characters).",
+                    "danger",
+                )
+                return redirect(url_for("complaints.detail", complaint_id=complaint.id))
+            complaint.resolution_note = resolution_note
+
+        # --- Student saying it is still broken ---------------------------
+        if new_status == Status.REOPENED:
+            reason = (request.form.get("reopen_reason") or "").strip()
+            if len(reason) < 5:
+                flash("Please say what is still wrong.", "danger")
+                return redirect(url_for("complaints.detail", complaint_id=complaint.id))
+            complaint.reopen_reason = reason
+            note = note or reason
+
         transition(complaint, new_status, current_user, note)
 
-        # Staff may attach proof-of-repair photos in the same submit.
+        # Proof-of-repair photos arrive in the same submit as the resolution.
         if new_status == Status.RESOLVED:
             _attach_resolution_photos(complaint)
 
@@ -203,8 +226,32 @@ def update_status(complaint_id: int):
             f"{complaint.code} is now {complaint.status.replace('_', ' ').title()}.",
             exclude_user_id=current_user.id,
         )
+
+        # --- Emails ------------------------------------------------------
+        if new_status == Status.RESOLVED:
+            notifications.notify(
+                complaint.student_id,
+                f"{complaint.code} has been marked as resolved. "
+                "Please verify the resolution.",
+                complaint,
+            )
+            email_log = mailers.notify_student_resolved(complaint)
+
+        elif new_status == Status.REOPENED:
+            email_log = mailers.notify_reopened(complaint, complaint.assigned_staff)
+            notifications.notify_admins(
+                f"{complaint.code} was reopened by the student.", complaint
+            )
+
         db.session.commit()
-        flash("Complaint updated.", "success")
+
+        if email_log is not None and not email_log.was_delivered:
+            flash(
+                "Complaint updated, but the notification email could NOT be sent.",
+                "warning",
+            )
+        else:
+            flash("Complaint updated.", "success")
 
     except (WorkflowError, UploadError) as exc:
         db.session.rollback()

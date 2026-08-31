@@ -70,7 +70,7 @@ def ensure_database(uri: str, reset: bool = False) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Initialise the ROSP database.")
+    parser = argparse.ArgumentParser(description="Initialise the CampusCare database.")
     parser.add_argument(
         "--reset",
         action="store_true",

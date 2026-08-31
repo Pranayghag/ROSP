@@ -92,6 +92,57 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", False)
 
+    # --- Branding ---------------------------------------------------------
+    APP_NAME = os.getenv("APP_NAME", "CampusCare")
+    APP_TAGLINE = "Smart College Complaint & Maintenance Management System"
+
+    #: Absolute base used to build links inside emails. Emails are read outside
+    #: the browser session, so relative URLs are useless there.
+    BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+
+    # --- Email ------------------------------------------------------------
+    #: Where administrator notifications are sent.
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
+
+    SMTP_HOST = os.getenv("SMTP_HOST", "")
+    SMTP_PORT = _env_int("SMTP_PORT", 587)
+    SMTP_USER = os.getenv("SMTP_USER", "")
+    #: Read from the environment only -- never written to source or committed.
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS = _env_bool("SMTP_USE_TLS", True)
+    SMTP_TIMEOUT = _env_int("SMTP_TIMEOUT", 20)
+    EMAIL_FROM = os.getenv("EMAIL_FROM", "") or SMTP_USER
+
+    #: True when enough SMTP settings exist to actually deliver mail.
+    #:
+    #: When false the application still runs: messages are recorded in the
+    #: email log and printed to the server log instead of being sent, so the
+    #: whole workflow can be exercised without credentials. Nothing silently
+    #: claims to have sent an email that was not sent.
+    EMAIL_ENABLED = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)
+
+    # --- Two-step verification (2FA) --------------------------------------
+    #: When false, signing in is a single step: email and password only.
+    #:
+    #: The OTP machinery stays in place and can be switched back on with one
+    #: environment variable -- nothing about it has been deleted. Turning it on
+    #: is strongly recommended for any deployment reachable from a network, and
+    #: requires working SMTP so codes can actually be delivered.
+    TWO_FACTOR_ENABLED = _env_bool("TWO_FACTOR_ENABLED", False)
+
+    OTP_LENGTH = 6
+    OTP_TTL_SECONDS = _env_int("OTP_TTL_SECONDS", 300)          # 5 minutes
+    OTP_MAX_ATTEMPTS = _env_int("OTP_MAX_ATTEMPTS", 5)
+    OTP_RESEND_COOLDOWN_SECONDS = _env_int("OTP_RESEND_COOLDOWN_SECONDS", 60)
+
+    #: Password/OTP hashing cost. None uses Werkzeug's default, which is
+    #: deliberately slow. Only the test config lowers it -- a fast hash on a
+    #: 6-digit OTP would make it brute-forceable from a database dump.
+    PASSWORD_HASH_METHOD = None
+
+    #: Signed, expiring tokens for links emailed to staff (e.g. set password).
+    ACTION_TOKEN_TTL_SECONDS = _env_int("ACTION_TOKEN_TTL_SECONDS", 172800)  # 48h
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
@@ -111,6 +162,16 @@ class TestingConfig(Config):
 
     TESTING = True
     WTF_CSRF_ENABLED = False
+
+    # A real KDF cost would make the suite take minutes: every test builds a
+    # fresh set of accounts. Security of the hash is not what these tests
+    # exercise, so use the cheapest valid setting here and nowhere else.
+    PASSWORD_HASH_METHOD = "pbkdf2:sha256:1"
+
+    # Two-step verification is on under test regardless of the deployment
+    # default, because it is the more complex path and needs the coverage.
+    # tests/test_single_step_login.py flips it off to cover the other branch.
+    TWO_FACTOR_ENABLED = True
     SQLALCHEMY_DATABASE_URI = "sqlite+pysqlite:///:memory:"
     SQLALCHEMY_ENGINE_OPTIONS: ClassVar[dict] = {}
 

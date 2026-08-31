@@ -32,6 +32,12 @@ def app(tmp_path):
         UPLOAD_DIR=tmp_path / "uploads",
         WTF_CSRF_ENABLED=False,
         TESTING=True,
+        # Never inherit the developer's real .env values: a test must not be
+        # able to address a real inbox, and assertions should not depend on
+        # whatever happens to be configured locally.
+        ADMIN_EMAIL="admin@campuscare.invalid",
+        EMAIL_ENABLED=False,
+        BASE_URL="http://localhost",
     )
     application.config["UPLOAD_DIR"].mkdir(parents=True, exist_ok=True)
 
@@ -85,13 +91,60 @@ def users(app):
 
 
 @pytest.fixture
-def login(client):
-    """Sign in as a given email; returns the response."""
+def otp_codes(monkeypatch):
+    """Capture one-time codes instead of emailing them.
+
+    The real code is hashed before storage and only ever leaves the process
+    inside an email, so a test cannot read it back. Intercepting the mailer is
+    the least invasive way to drive the two-step flow: the OTP service itself,
+    including generation, hashing, expiry and attempt limits, still runs
+    exactly as it does in production.
+    """
+    from app.models import EmailLog
+    from app.services import mailers
+
+    captured: list[str] = []
+
+    def fake_send_otp(user, code):
+        captured.append(code)
+        log = EmailLog(
+            to_address=user.email,
+            subject="Verification code",
+            template="otp",
+            status=EmailLog.SENT,
+            user_id=user.id,
+        )
+        db.session.add(log)
+        return log
+
+    # Patched where it is looked up: the auth blueprint calls mailers.send_otp.
+    monkeypatch.setattr(mailers, "send_otp", fake_send_otp)
+    return captured
+
+
+@pytest.fixture
+def login(client, otp_codes):
+    """Sign in fully, completing both steps of verification.
+
+    Returns the final response. If the account is blocked before a code is
+    issued (pending, rejected, suspended, or a bad password) the first response
+    is returned instead, so tests can assert on the message shown.
+    """
 
     def _login(email: str, password: str = "Password@123"):
-        return client.post(
+        before = len(otp_codes)
+        response = client.post(
             "/login",
             data={"email": email, "password": password},
+            follow_redirects=True,
+        )
+        if len(otp_codes) == before:
+            # No code was issued: the sign-in was refused at step one.
+            return response
+
+        return client.post(
+            "/verify",
+            data={"code": otp_codes[-1]},
             follow_redirects=True,
         )
 
