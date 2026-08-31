@@ -135,6 +135,18 @@ def assign_complaint(complaint_id: int):
 
     if form.validate_on_submit():
         staff = db.session.get(User, form.staff_id.data)
+
+        # The dropdown only offers authorized staff and WTForms rejects a value
+        # outside those choices, but check the rule itself here too: a stale
+        # form submitted after someone was suspended must not slip through.
+        if staff is None or not staff.can_be_assigned:
+            flash(
+                "That staff member cannot be assigned complaints. They must be "
+                "authorized first.",
+                "danger",
+            )
+            return render_template("admin/assign.html", form=form, complaint=complaint)
+
         try:
             assign(complaint, staff, current_user, form.note.data or None)
             notifications.notify(

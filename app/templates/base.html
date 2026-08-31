@@ -13,7 +13,8 @@
 
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128221;</text></svg>">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" sizes="any">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -22,11 +23,9 @@
 <nav class="navbar navbar-expand-lg rosp-navbar sticky-top">
   <div class="container">
     <a class="navbar-brand" href="{{ url_for('main.index') }}">
-      <span class="rosp-brand-mark">CC</span>
-      <span>
-        {{ config.APP_NAME }}
-        <span class="rosp-brand-sub d-none d-sm-inline">Complaints &amp; Maintenance</span>
-      </span>
+      <img src="{{ url_for('static', filename='img/campuscare-mark.png') }}"
+           class="rosp-brand-mark" alt="" width="38" height="38">
+      <span class="rosp-brand-name">{{ config.APP_NAME }}</span>
     </a>
 
     <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"

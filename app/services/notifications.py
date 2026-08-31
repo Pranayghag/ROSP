@@ -3,10 +3,10 @@
 Notifications are written inside the same transaction as the change that
 triggered them, so a user is never told about something that was rolled back.
 
-Delivery is deliberately in-app only. Email or SMS would need credentials and a
-mail server, which would make the project harder to clone and run -- an
-important consideration for an open-source project. ``docs/ROADMAP.md`` records
-how to add email later.
+This module handles the *in-app* notifications only -- the bell in the navbar.
+Email is a separate concern, sent from :mod:`app.services.mailers`, and the two
+are deliberately independent: a mail failure must never lose the in-app record,
+and the app stays fully usable with no SMTP configured at all.
 """
 
 from __future__ import annotations

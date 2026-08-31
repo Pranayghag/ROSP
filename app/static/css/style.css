@@ -149,21 +149,24 @@ a:hover { color: var(--primary); }
 }
 
 .rosp-brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-lg);
-  background: var(--primary);
-  color: var(--on-primary);
-  display: grid;
-  place-items: center;
-  font-size: 13px;
-  font-weight: 700;
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
-.rosp-brand-sub {
-  color: var(--on-surface-variant);
-  font-size: 14px;
-  font-weight: 400;
+.rosp-brand-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--primary);
+  line-height: 1;
+}
+
+@media (max-width: 400px) {
+  .rosp-brand-name { font-size: 17px; }
+  .rosp-brand-mark { width: 32px; height: 32px; }
 }
 
 .rosp-navbar .nav-link {

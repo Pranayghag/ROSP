@@ -58,8 +58,8 @@ Good first contributions:
 
 Larger pieces that would be welcome:
 
-- Email notifications alongside the in-app ones (must stay optional — the
-  project has to keep running with no mail server configured)
+- Sending email in the background, so a slow mail server cannot delay a
+  request (delivery is currently synchronous)
 - Export of complaints to CSV or PDF
 - A REST API for a future mobile client
 - Alembic migrations, so schema changes do not require a database reset

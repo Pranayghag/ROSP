@@ -1,9 +1,13 @@
+<p align="center">
+  <img src="app/static/img/campuscare-logo.png" alt="CampusCare" width="420">
+</p>
+
 # CampusCare — Smart College Complaint & Maintenance Management System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000.svg)](https://flask.palletsprojects.com/)
-[![Tests](https://img.shields.io/badge/tests-113%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-144%20passing-brightgreen.svg)](tests/)
 
 Students report campus problems — leaking ceilings, dead projectors, broken
 fans, patchy Wi‑Fi — verbally or in scattered WhatsApp messages. Nothing has a
@@ -64,8 +68,8 @@ Student → submits complaint (+ photos) → Admin → assigns → Staff → res
 - Upload "after" photos as proof of the completed repair
 
 **Security & accounts**
-- **Two-step verification** for every role: password, then a 6-digit code
-  emailed to the account holder
+- **Two-step verification** available for every role: password, then a
+  6-digit emailed code (opt-in via `TWO_FACTOR_ENABLED`)
 - **Staff authorization** — a staff account is unusable until an administrator
   approves it, and that approval is permanent
 - Admins can create staff accounts directly; the person sets their own password
@@ -118,7 +122,7 @@ Everything is open source and free to use.
 | Auth | Flask-Login + Werkzeug PBKDF2 | Standard, no rolled-my-own crypto |
 | Forms & CSRF | Flask-WTF | CSRF protection on every POST |
 | Images | Pillow | Verifies uploads really decode as images |
-| Tests | pytest | 113 tests, no database server required |
+| Tests | pytest | 144 tests, no database server required |
 
 Bootstrap, Inter and the icon set are all committed under
 [`app/static/vendor/`](app/static/vendor/) and
@@ -351,16 +355,22 @@ sure that property cannot be quietly lost.
 
 ### Two-step verification
 
-Every sign-in, for every role, takes two stages:
+Controlled by `TWO_FACTOR_ENABLED`, which is **off by default** — signing in is
+email and password only. Set it to `true` (and configure SMTP, so codes can be
+delivered) to add the second step:
 
 ```
 email + password  →  credentials verified  →  6-digit code emailed
                   →  code verified         →  dashboard
 ```
 
-The password alone grants nothing: until the code is accepted the session holds
-only a user id and a timestamp, which is worthless on its own and expires with
-the code.
+With it on, the password alone grants nothing: until the code is accepted the
+session holds only a user id and a timestamp, which is worthless on its own and
+expires with the code.
+
+Turning it off removes the second factor and **nothing else** — the password
+check, the staff authorization gate and the password-set check all still run.
+`tests/test_single_step_login.py` exists to keep that true.
 
 The code is generated with `secrets`, **hashed before storage**, and exists in
 plaintext only inside the email. It is never logged, never put in a template
@@ -464,6 +474,8 @@ What is covered:
 | `test_complaint_flow.py` | Submission through to closure |
 | `test_suggestions.py` | Suggestions stay advisory |
 | `test_two_factor.py` | Codes expire, are single-use, rate-limited, never stored in plaintext |
+| `test_single_step_login.py` | With 2FA off, every other guard still holds |
+| `test_workflows.py` | The eight end-to-end journeys from the specification |
 | `test_staff_authorization.py` | Pending staff blocked, approval is permanent, only authorized staff assignable |
 
 > The "malicious" test payloads are assembled from hex at runtime. A source

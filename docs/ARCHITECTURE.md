@@ -51,10 +51,18 @@ application code is identical in both cases; only the URI differs.
 | `Attachment` | One photo. Matches the specified table, plus `attachment_type`. |
 | `ComplaintEvent` | Append-only audit trail; the timeline is derived from it. |
 | `Notification` | In-app messages for a single user. |
+| `OtpCode` | A hashed one-time code, with its expiry and attempt count. |
+| `EmailLog` | Every delivery attempt and its outcome. |
 
 `Complaint.is_visible_to(user)` is the one place the read-permission rule lives.
 Both the complaint page and the evidence route call it, so they cannot drift
 apart.
+
+`User.authorization_status` gates staff access. Students are `AUTHORIZED` on
+creation; staff start `PENDING` and stay unusable until an administrator
+approves them. **The value is written only by an explicit admin decision** —
+nothing in the sign-in path touches it, so approval is granted once and never
+re-litigated.
 
 ### `app/services/uploads.py`
 
@@ -80,6 +88,27 @@ Each category has an `sla_hours` target, scaled by priority
 (`URGENT` = ¼ of the time, `LOW` = 1½×). `escalate_overdue()` is idempotent: it
 only acts on complaints past their deadline that have not been escalated yet,
 so it is safe to call from a cron job or a button.
+
+### `app/services/email.py` and `mailers.py`
+
+`email.py` is the transport: render a template, build a multipart message with
+any inline images, send it, and record an `EmailLog` row. `mailers.py` sits on
+top with one function per message the application sends, so subjects and
+context live in one place.
+
+**It never claims to have sent something it did not.** With no SMTP configured
+the row is written as `NOT_CONFIGURED` and the body goes to the server log; the
+caller inspects the returned row and tells the user the truth.
+
+### `app/services/otp.py` and `tokens.py`
+
+`otp.py` issues and verifies the 6-digit codes — hashed before storage, single
+use, expiring, attempt-limited, superseded on reissue. Active only when
+`TWO_FACTOR_ENABLED` is set.
+
+`tokens.py` mints the signed, expiring links emailed to staff for setting a
+password. The payload includes a digest of the current password hash, so the
+link stops working the moment it is used.
 
 ### `app/services/suggestions.py`
 
@@ -164,14 +193,23 @@ node_modules.
 ## Testing
 
 ```
-tests/conftest.py              temporary SQLite + temporary upload dir
-tests/test_upload_validation.py   the security-critical suite
-tests/test_access_control.py      who can read evidence
-tests/test_complaint_flow.py      submission through to closure
-tests/test_suggestions.py         suggestions stay advisory
+tests/conftest.py                  temporary SQLite + temporary upload dir
+tests/test_upload_validation.py    the security-critical suite
+tests/test_access_control.py       who can read evidence
+tests/test_complaint_flow.py       submission through to closure
+tests/test_suggestions.py          suggestions stay advisory
+tests/test_two_factor.py           OTP expiry, attempts, single use, cooldown
+tests/test_single_step_login.py    with 2FA off, every other guard still holds
+tests/test_staff_authorization.py  approval is required, and permanent
+tests/test_workflows.py            the eight end-to-end journeys
 ```
 
-The suite needs no MySQL, so it runs anywhere including CI.
+144 tests. The suite needs no MySQL and no `.env`, so it runs anywhere
+including CI — a fresh clone passes with nothing configured.
+
+`conftest.py` intercepts `mailers.send_otp` to capture codes, because a real
+code is hashed before storage and cannot be read back. The OTP service itself
+still runs unmodified.
 
 The hostile payloads in `test_upload_validation.py` are assembled from hex at
 runtime. A source file containing a literal shell one-liner gets quarantined by

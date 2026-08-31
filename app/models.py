@@ -124,10 +124,6 @@ class User(UserMixin, db.Model):
         return self.authorization_status == AuthorizationStatus.AUTHORIZED
 
     @property
-    def is_pending(self) -> bool:
-        return self.authorization_status == AuthorizationStatus.PENDING
-
-    @property
     def blocked_reason(self) -> str | None:
         """Message to show someone who cannot sign in, or None if they can."""
         if self.is_authorized:

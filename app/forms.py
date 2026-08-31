@@ -160,14 +160,6 @@ class AssignForm(FlaskForm):
     submit = SubmitField("Assign")
 
 
-class StatusForm(FlaskForm):
-    """Carries a single status transition plus an optional note."""
-
-    status = StringField(validators=[DataRequired()])
-    note = StringField(validators=[Optional(), Length(max=500)])
-    submit = SubmitField("Update")
-
-
 class OtpForm(FlaskForm):
     """Step two of signing in."""
 
@@ -252,49 +244,3 @@ class SetPasswordForm(FlaskForm):
         validators=[DataRequired(), EqualTo("password", message="Passwords must match.")],
     )
     submit = SubmitField("Set Password")
-
-
-class ResolveForm(FlaskForm):
-    """Staff marking work complete, with proof-of-repair photos."""
-
-    resolution_note = TextAreaField(
-        "Resolution description",
-        validators=[
-            DataRequired(message="Describe what you did."),
-            Length(min=10, max=2000),
-        ],
-    )
-    resolution_photos = MultipleFileField(
-        "Upload completion / resolution photo",
-        validators=[
-            FileAllowed(
-                ["jpg", "jpeg", "png", "webp"],
-                "Only JPG, JPEG, PNG and WEBP images are accepted.",
-            )
-        ],
-    )
-    submit = SubmitField("Mark Complaint as Resolved")
-
-    #: Set by the view from config.
-    max_photos = 5
-
-    def validate_resolution_photos(self, field) -> None:
-        chosen = [f for f in (field.data or []) if f and getattr(f, "filename", "")]
-        if len(chosen) > self.max_photos:
-            raise ValidationError(
-                f"You can attach at most {self.max_photos} photos "
-                f"(you selected {len(chosen)})."
-            )
-
-
-class ReopenForm(FlaskForm):
-    """Student saying the problem is not actually fixed."""
-
-    reason = TextAreaField(
-        "What is still wrong?",
-        validators=[
-            DataRequired(message="Tell the staff member what is still wrong."),
-            Length(min=5, max=500),
-        ],
-    )
-    submit = SubmitField("Reopen Complaint")

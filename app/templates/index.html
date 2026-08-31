@@ -25,6 +25,10 @@
   </div>
 
   <div class="col-lg-5">
+    <img src="{{ url_for('static', filename='img/campuscare-logo.png') }}"
+         alt="{{ config.APP_NAME }} — {{ config.APP_TAGLINE }}"
+         class="img-fluid d-block mx-auto mb-4" style="max-width: 340px;">
+
     <div class="card">
       <div class="card-header">{{ icon('activity', 20) }} How it works</div>
       <div class="card-body">

@@ -7,20 +7,18 @@ good issues to pick up. Please open an issue before starting anything large.
 
 ## Near term
 
-### Email notifications
+### Background email delivery
 
-Notifications are currently in-app only, deliberately: requiring SMTP
-credentials would make the project harder to clone and run, which matters for an
-open-source project a stranger should be able to try in five minutes.
+Email is implemented (`app/services/email.py`), but sends **synchronously**: a
+slow or unreachable SMTP server delays the request by up to `SMTP_TIMEOUT`
+seconds. At college scale that is a handful of messages a day and rarely
+noticed, but it is the obvious next improvement.
 
-If added, email must stay **optional** — absent configuration, the app must run
-exactly as it does now.
+A queue would need to carry its own app context and database session, and must
+keep writing an `EmailLog` row so "was it delivered?" still has an honest
+answer.
 
-- Add `MAIL_*` settings to `.env.example`, all optional
-- Send from `app/services/notifications.py`, alongside the database write
-- Queue sends outside the request cycle so a slow mail server never blocks a
-  student's submission
-- Let users opt out per notification type
+Also worth adding: per-user opt-out for each notification type.
 
 ### Alembic migrations
 
