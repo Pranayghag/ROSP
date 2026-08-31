@@ -20,6 +20,53 @@
   </div>
 </div>
 
+{#
+  New staff registrations need a decision before those people can do anything,
+  so they get top billing rather than sitting behind a menu.
+#}
+{% if pending_staff %}
+  <div class="card mb-4" style="border-color: var(--status-pending);">
+    <div class="card-header" style="background: var(--status-pending-bg);">
+      {{ icon('user-plus', 20) }}
+      {{ pending_staff|length }} staff account{{ '' if pending_staff|length == 1 else 's' }}
+      awaiting your authorization
+      <a href="{{ url_for('admin.staff_list', status=AuthorizationStatus.PENDING) }}"
+         class="file-count text-decoration-none">View all</a>
+    </div>
+    <ul class="list-group list-group-flush">
+      {% for member in pending_staff[:5] %}
+        <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
+          <div class="flex-grow-1" style="min-width: 200px;">
+            <a href="{{ url_for('admin.staff_detail', user_id=member.id) }}"
+               class="complaint-title fw-semibold">{{ member.name }}</a>
+            <div class="body-sm text-muted">
+              {{ member.email }}
+              {%- if member.designation %} &middot; {{ member.designation }}{% endif %}
+              {%- if member.department %} &middot; {{ member.department }}{% endif %}
+              &middot; registered {{ member.created_at|since }}
+            </div>
+          </div>
+
+          {% if member.id != current_user.id %}
+            <form method="post"
+                  action="{{ url_for('admin.staff_decision', user_id=member.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="decision" value="{{ AuthorizationStatus.AUTHORIZED }}">
+              <input type="hidden" name="return_to" value="{{ url_for('admin.dashboard') }}">
+              <button type="submit" class="btn btn-success btn-sm">
+                {{ icon('check', 14) }} Authorize
+              </button>
+            </form>
+          {% endif %}
+
+          <a href="{{ url_for('admin.staff_detail', user_id=member.id) }}"
+             class="btn btn-outline-secondary btn-sm">Review</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
 <div class="row g-3 mb-3">
   {{ stat_card('Total complaints', counts.TOTAL, 'primary', 'inbox', url_for('admin.queue')) }}
   {{ stat_card('Open', counts.OPEN, 'info', 'clock') }}

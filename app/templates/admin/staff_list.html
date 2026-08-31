@@ -84,9 +84,44 @@
                 </span>
               </td>
               <td class="text-muted text-nowrap">{{ member.created_at|since }}</td>
+              {#
+                Quick actions. A pending account is the common case an admin
+                acts on, so Authorize is one click here rather than four via
+                the detail page. Anything that needs a note still goes through
+                Review, and the decision endpoint is the same either way.
+              #}
               <td class="text-nowrap">
-                <a href="{{ url_for('admin.staff_detail', user_id=member.id) }}"
-                   class="btn btn-outline-secondary btn-sm">Review</a>
+                <div class="d-flex gap-1 justify-content-end">
+                  {% if member.authorization_status == AuthorizationStatus.PENDING
+                        and member.id != current_user.id %}
+                    <form method="post"
+                          action="{{ url_for('admin.staff_decision', user_id=member.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="decision"
+                             value="{{ AuthorizationStatus.AUTHORIZED }}">
+                      <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                      <button type="submit" class="btn btn-success btn-sm"
+                              title="Authorize {{ member.name }}">
+                        {{ icon('check', 14) }} Authorize
+                      </button>
+                    </form>
+                    <form method="post"
+                          action="{{ url_for('admin.staff_decision', user_id=member.id) }}"
+                          onsubmit="return confirm('Reject {{ member.name }}? They will be emailed and cannot sign in.');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="decision"
+                             value="{{ AuthorizationStatus.REJECTED }}">
+                      <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                      <button type="submit" class="btn btn-outline-secondary btn-sm"
+                              title="Reject {{ member.name }}">
+                        {{ icon('x', 14) }}
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  <a href="{{ url_for('admin.staff_detail', user_id=member.id) }}"
+                     class="btn btn-outline-secondary btn-sm">Review</a>
+                </div>
               </td>
             </tr>
           {% endfor %}

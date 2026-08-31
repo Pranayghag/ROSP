@@ -73,10 +73,22 @@ def dashboard():
         .order_by(Complaint.created_at.asc())
     ).all()
 
+    # Staff waiting on a decision. Shown here because a new registration is
+    # otherwise invisible unless someone thinks to open Staff Management.
+    pending_staff = db.session.scalars(
+        select(User)
+        .where(
+            User.role.in_([Role.STAFF, Role.ADMIN]),
+            User.authorization_status == AuthorizationStatus.PENDING,
+        )
+        .order_by(User.created_at.asc())
+    ).all()
+
     return render_template(
         "admin/dashboard.html",
         counts=counts,
         unassigned=unassigned,
+        pending_staff=pending_staff,
         overdue=overdue_complaints(),
         total_evidence=db.session.scalar(select(func.count(Attachment.id))) or 0,
     )
@@ -426,6 +438,12 @@ def staff_decision(user_id: int):
         flash(f"{message} The notification email could NOT be sent.", "warning")
     else:
         flash(message, "success")
+
+    # A decision taken from a list should return to that list, not jump into
+    # the profile. Only same-site relative paths are honoured.
+    return_to = request.form.get("return_to", "")
+    if return_to.startswith("/") and "//" not in return_to:
+        return redirect(return_to)
 
     return redirect(url_for("admin.staff_detail", user_id=staff.id))
 

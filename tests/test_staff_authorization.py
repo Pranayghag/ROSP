@@ -382,3 +382,93 @@ def test_tampered_setup_token_is_rejected(client):
     response = client.get("/account/setup/not-a-real-token", follow_redirects=True)
 
     assert "invalid or has expired" in response.get_data(as_text=True).lower()
+
+
+# --------------------------------------------------------------------------
+# One-click authorization from the list and the dashboard
+# --------------------------------------------------------------------------
+
+
+def test_pending_staff_show_an_authorize_button_in_the_list(client, login, users):
+    staff = users["staff1"]
+    staff.authorization_status = AuthorizationStatus.PENDING
+    db.session.commit()
+
+    login("admin@rosp.edu")
+    body = client.get("/admin/staff").get_data(as_text=True)
+
+    assert f"/admin/staff/{staff.id}/decision" in body
+    assert "Authorize" in body
+
+
+def test_authorized_staff_show_no_authorize_button(client, login, users):
+    users["staff1"].authorization_status = AuthorizationStatus.AUTHORIZED
+    db.session.commit()
+
+    login("admin@rosp.edu")
+    body = client.get(
+        f"/admin/staff?status={AuthorizationStatus.AUTHORIZED}"
+    ).get_data(as_text=True)
+
+    assert "Authorize</button>" not in body.replace("\n", "").replace(" ", "")
+
+
+def test_one_click_authorize_returns_to_the_list(client, login, users):
+    staff = users["staff1"]
+    staff.authorization_status = AuthorizationStatus.PENDING
+    db.session.commit()
+
+    login("admin@rosp.edu")
+    response = client.post(
+        f"/admin/staff/{staff.id}/decision",
+        data={
+            "decision": AuthorizationStatus.AUTHORIZED,
+            "return_to": "/admin/staff?status=PENDING",
+        },
+        follow_redirects=False,
+    )
+
+    db.session.refresh(staff)
+    assert staff.authorization_status == AuthorizationStatus.AUTHORIZED
+    assert response.status_code == 302
+    assert "/admin/staff" in response.headers["Location"]
+
+
+def test_return_to_cannot_be_used_as_an_open_redirect(client, login, users):
+    """A hostile return_to must not bounce the admin off-site."""
+    staff = users["staff1"]
+    staff.authorization_status = AuthorizationStatus.PENDING
+    db.session.commit()
+
+    login("admin@rosp.edu")
+    for hostile in ("https://evil.example/steal", "//evil.example/steal"):
+        response = client.post(
+            f"/admin/staff/{staff.id}/decision",
+            data={"decision": AuthorizationStatus.AUTHORIZED, "return_to": hostile},
+            follow_redirects=False,
+        )
+        assert "evil.example" not in response.headers["Location"], hostile
+
+
+def test_dashboard_lists_staff_awaiting_authorization(client, login, users):
+    staff = users["staff1"]
+    staff.authorization_status = AuthorizationStatus.PENDING
+    db.session.commit()
+
+    login("admin@rosp.edu")
+    body = client.get("/admin/").get_data(as_text=True)
+
+    assert "awaiting your authorization" in body.lower()
+    assert staff.name in body
+    assert f"/admin/staff/{staff.id}/decision" in body
+
+
+def test_dashboard_hides_the_panel_when_nothing_is_pending(client, login, users):
+    for key in ("staff1", "staff2"):
+        users[key].authorization_status = AuthorizationStatus.AUTHORIZED
+    db.session.commit()
+
+    login("admin@rosp.edu")
+    body = client.get("/admin/").get_data(as_text=True)
+
+    assert "awaiting your authorization" not in body.lower()
