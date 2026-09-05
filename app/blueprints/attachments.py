@@ -13,12 +13,14 @@ The stored filesystem path never appears in a URL, a page, or an error message.
 
 from __future__ import annotations
 
+from io import BytesIO
+
 from flask import Blueprint, abort, current_app, send_file
 from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..models import Attachment
-from ..services.uploads import UploadError, delete_stored_file, resolve_stored_path
+from ..services.uploads import UploadError, delete_stored_file, read_attachment
 
 bp = Blueprint("attachments", __name__, url_prefix="/evidence")
 
@@ -41,24 +43,24 @@ def view(attachment_id: int):
     """Stream one evidence image to an authorised viewer."""
     attachment = _load_visible_attachment(attachment_id)
 
+    # Read through the storage backend rather than from disk directly. On a
+    # host with an ephemeral filesystem the bytes live in object storage, and
+    # they are fetched here -- server-side, after the permission check above --
+    # so a photo never has a URL anyone could share.
     try:
-        path = resolve_stored_path(attachment.file_path)
-    except UploadError:
-        current_app.logger.error(
-            "Attachment %s has an out-of-bounds file_path", attachment.id
+        data = read_attachment(attachment)
+    except UploadError as exc:
+        current_app.logger.warning(
+            "Could not read attachment %s: %s", attachment.id, exc
         )
         abort(404)
 
-    if not path.is_file():
-        current_app.logger.warning("Missing evidence file for attachment %s", attachment.id)
-        abort(404)
-
     response = send_file(
-        path,
+        BytesIO(data),
         mimetype=attachment.file_type,
         as_attachment=False,
         download_name=attachment.file_name,
-        conditional=True,
+        conditional=False,
     )
     # Stop a browser from re-interpreting the bytes as anything but the declared
     # image type, and keep evidence out of shared/proxy caches.

@@ -21,3 +21,11 @@ Pillow>=11.0
 
 # Email syntax validation for registration forms
 email-validator>=2.1
+
+# --- Deployment (unused locally) --------------------------------------------
+# Hosted Postgres, for platforms that do not offer MySQL.
+psycopg[binary]>=3.2
+
+# Object storage for evidence photos. Required on any host with an ephemeral
+# filesystem -- see docs/DEPLOYMENT.md.
+cloudinary>=1.41

@@ -32,6 +32,26 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _normalise_database_url(url: str) -> str:
+    """Make a hosted provider's URL usable by SQLAlchemy 2.
+
+    Neon, Vercel Postgres, Render and Heroku all hand out ``postgres://``,
+    a scheme SQLAlchemy 2 removed. They also omit the driver, so pin psycopg
+    explicitly rather than depending on whichever DBAPI happens to be
+    installed. Anything already carrying a driver is left alone.
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://") :]
+
+    # Managed Postgres requires TLS; most providers include it, some do not.
+    if url.startswith("postgresql+psycopg://") and "sslmode=" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+
+    return url
+
+
 def _database_uri() -> str:
     """Build the SQLAlchemy URI.
 
@@ -41,7 +61,7 @@ def _database_uri() -> str:
     """
     explicit = os.getenv("DATABASE_URL")
     if explicit:
-        return explicit
+        return _normalise_database_url(explicit)
 
     user = quote_plus(os.getenv("MYSQL_USER", "root"))
     password = quote_plus(os.getenv("MYSQL_PASSWORD", ""))
@@ -86,6 +106,20 @@ class Config:
         * 1024
         * 1024
     ) + (1024 * 1024)
+
+    # --- Evidence storage --------------------------------------------------
+    #: "local" writes under UPLOAD_DIR; "cloudinary" uses object storage.
+    #:
+    #: Serverless and free PaaS tiers have an ephemeral filesystem -- files are
+    #: wiped on every redeploy -- so any deployed instance must use object
+    #: storage or it will silently lose evidence photos.
+    STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local").lower()
+
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
+    #: Read from the environment only -- never written to source or committed.
+    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
+    CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "campuscare")
 
     # --- Session cookies --------------------------------------------------
     SESSION_COOKIE_HTTPONLY = True

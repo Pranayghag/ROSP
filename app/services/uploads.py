@@ -53,6 +53,7 @@ from flask import current_app
 from PIL import Image, UnidentifiedImageError
 
 from ..models import Attachment
+from .storage import LocalStorage, StorageError, get_storage
 
 # Guard against decompression bombs: a small file that expands to gigabytes of
 # pixels. 50 megapixels is far beyond any phone photo of a leaking ceiling.
@@ -255,34 +256,49 @@ def _verify_decodable(data: bytes, display_name: str) -> str:
 
 
 def upload_root() -> Path:
-    """Absolute path of the configured upload directory."""
+    """Absolute path of the local upload directory.
+
+    Only meaningful for the local backend; kept because scripts and tests
+    reason about the directory directly.
+    """
     return Path(current_app.config["UPLOAD_DIR"]).resolve()
 
 
-def resolve_stored_path(relative_path: str) -> Path:
-    """Resolve a stored relative path, refusing anything outside UPLOAD_DIR.
+def resolve_stored_path(key: str) -> Path:
+    """Absolute local path for a storage key.
 
-    Defence in depth: even if a malicious value somehow reached the database,
-    it cannot be used to read ``../../etc/passwd``.
+    Local backend only. Raises :class:`UploadError` for a key this application
+    did not generate, or one that escapes the upload directory -- defence in
+    depth against a poisoned database value.
     """
-    root = upload_root()
-    candidate = (root / relative_path).resolve()
-    if not candidate.is_relative_to(root):
-        raise UploadError("Invalid attachment location.")
-    return candidate
+    backend = get_storage()
+    if not isinstance(backend, LocalStorage):
+        raise UploadError("Attachments are not stored on the local filesystem.")
+    try:
+        return backend.path_for(key)
+    except StorageError as exc:
+        raise UploadError(str(exc)) from exc
 
 
-def _write_sanitised(validated: ValidatedImage, destination: Path) -> int:
-    """Re-encode the image to ``destination``, stripping metadata.
+def read_attachment(attachment) -> bytes:
+    """The stored bytes for an attachment, whichever backend holds them."""
+    try:
+        return get_storage().load(attachment.file_path)
+    except StorageError as exc:
+        raise UploadError(str(exc)) from exc
 
-    Returns the number of bytes actually written. Re-encoding rather than
-    copying the original bytes is deliberate: it removes EXIF (which can carry
-    GPS coordinates) and discards anything hidden in metadata segments.
+
+def _sanitised_bytes(validated: ValidatedImage) -> bytes:
+    """Re-encode the image in memory, stripping metadata.
+
+    Re-encoding rather than passing the original bytes through is deliberate:
+    it removes EXIF (which can carry GPS coordinates) and discards anything
+    hidden in a metadata segment. Done in memory so the result can go to any
+    backend, not only a filesystem.
     """
-    destination.parent.mkdir(parents=True, exist_ok=True)
-
     previous_limit = Image.MAX_IMAGE_PIXELS
     Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    buffer = BytesIO()
     try:
         with Image.open(BytesIO(validated.data)) as image:
             save_kwargs: dict = {}
@@ -303,11 +319,11 @@ def _write_sanitised(validated: ValidatedImage, destination: Path) -> int:
             # is passed explicitly to save(), and nothing is passed here.
             clean = Image.new(image.mode, image.size)
             clean.paste(image)
-            clean.save(destination, format=validated.pil_format, **save_kwargs)
+            clean.save(buffer, format=validated.pil_format, **save_kwargs)
     finally:
         Image.MAX_IMAGE_PIXELS = previous_limit
 
-    return destination.stat().st_size
+    return buffer.getvalue()
 
 
 def store_evidence(files, complaint, uploader_id: int) -> list[Attachment]:
@@ -337,36 +353,41 @@ def store_evidence(files, complaint, uploader_id: int) -> list[Attachment]:
     # Phase 1 -- validate everything, touching no files.
     validated = [validate_image(storage) for storage in candidates]
 
-    # Phase 2 -- write. Any failure removes the files written so far.
+    # Phase 2 -- store. Any failure removes whatever was already stored, so a
+    # rejected batch leaves nothing behind in either backend.
+    backend = get_storage()
     attachments: list[Attachment] = []
-    written: list[Path] = []
+    stored_keys: list[str] = []
     try:
         for item in validated:
-            relative = build_relative_path(generate_stored_name(item.canonical_ext))
-            destination = resolve_stored_path(relative)
-            size = _write_sanitised(item, destination)
-            written.append(destination)
+            key = build_relative_path(generate_stored_name(item.canonical_ext))
+            size = backend.save(key, _sanitised_bytes(item), item.mime)
+            stored_keys.append(key)
 
             attachments.append(
                 Attachment(
                     complaint_id=complaint.id,
                     file_name=item.display_name,
-                    file_path=relative,
+                    file_path=key,
                     file_type=item.mime,
                     file_size=size,
                     uploaded_by=uploader_id,
                 )
             )
+    except StorageError as exc:
+        for key in stored_keys:
+            backend.delete(key)
+        raise UploadError(str(exc)) from exc
     except Exception:
-        for path in written:
-            path.unlink(missing_ok=True)
+        for key in stored_keys:
+            backend.delete(key)
         raise
 
     return attachments
 
 
 def delete_stored_file(attachment: Attachment) -> None:
-    """Remove an attachment's file from disk, ignoring an already-missing file."""
-    # A path that no longer resolves inside UPLOAD_DIR is not ours to delete.
-    with contextlib.suppress(UploadError):
-        resolve_stored_path(attachment.file_path).unlink(missing_ok=True)
+    """Remove an attachment's stored object, ignoring one already gone."""
+    # A key that no longer validates is not ours to delete.
+    with contextlib.suppress(StorageError):
+        get_storage().delete(attachment.file_path)
