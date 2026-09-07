@@ -117,6 +117,22 @@ every suggestion can be explained ("matched: leaking, water").
 
 **It only ever suggests.** See [the design rule](#the-rule-that-must-not-break).
 
+### `app/services/chatbot.py`
+
+The in-app assistant. A single ordered catalogue, `TOPICS`, does four jobs: it
+matches questions, feeds the keyword fallback, renders the browsable menu in the
+widget, and generates [ASSISTANT.md](ASSISTANT.md). Adding a capability is one
+row, so the menu and the docs cannot drift from what the code does.
+
+Deliberately **not** a language model. The questions students ask are about
+their own rows ("where has CC102 got to?"), which a model cannot answer without
+reading the database — and if it guesses, it invents a status the student then
+acts on. So each reply is either fixed procedural text or a real row.
+
+Every lookup is scoped in `_own_complaints`, and code lookups reuse
+`Complaint.is_visible_to` — the same rule the complaint page enforces, so the
+assistant can never reveal what the UI would refuse to show.
+
 ---
 
 ## Data flow: filing a complaint with evidence

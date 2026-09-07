@@ -1,9 +1,10 @@
-"""The assistant endpoint behind the chat widget.
+"""The assistant endpoints behind the chat widget.
 
-Two routes, both requiring a signed-in user: one to open the conversation, one
-to answer a message. Nothing is persisted -- the transcript lives in the
-browser tab and is gone when it closes. There is no reason to keep it, and not
-keeping it means there is no store of student questions to leak.
+Three routes, all requiring a signed-in user: one to open the conversation, one
+to list the questions the assistant understands, and one to answer a message.
+Nothing is persisted -- the transcript lives in the browser tab and is gone when
+it closes. There is no reason to keep it, and not keeping it means there is no
+store of student questions to leak.
 
 Every answer is produced by :mod:`app.services.chatbot`, which scopes each
 lookup to the person asking.
@@ -30,6 +31,18 @@ HARD_LIMIT = 10_000
 def open_chat():
     """The greeting shown when the widget is first opened."""
     return jsonify(chatbot.greeting_for(current_user).as_dict())
+
+
+@bp.route("/topics", methods=["GET"])
+@login_required
+def topics():
+    """Every question the assistant understands, grouped for browsing.
+
+    Built from the same catalogue that does the matching, so the menu can never
+    advertise something the assistant cannot actually answer. Staff-only topics
+    are filtered out for students here rather than in the browser.
+    """
+    return jsonify(chatbot.catalogue_for(current_user))
 
 
 @bp.route("/ask", methods=["POST"])

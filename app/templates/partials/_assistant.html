@@ -11,6 +11,7 @@
 
 <div id="assistant" class="assistant" data-open-url="{{ url_for('chat.open_chat') }}"
      data-ask-url="{{ url_for('chat.ask') }}"
+     data-topics-url="{{ url_for('chat.topics') }}"
      data-csrf="{{ csrf_token() }}">
 
   {# --- Launcher --------------------------------------------------- #}
@@ -32,12 +33,33 @@
         <div class="assistant-title">{{ config.APP_NAME }} Assistant</div>
         <div class="assistant-subtitle">Answers about your complaints</div>
       </div>
+      <button type="button" class="assistant-close" id="assistant-topics-open"
+              aria-label="Browse every question you can ask"
+              title="Browse every question you can ask">{{ icon('list', 18) }}</button>
       <button type="button" class="assistant-close" id="assistant-close"
               aria-label="Close the assistant">{{ icon('x', 18) }}</button>
     </header>
 
-    <div class="assistant-log" id="assistant-log" role="log"
-         aria-live="polite" aria-atomic="false"></div>
+    {# The two views share this area: the transcript, and the question list
+       laid over it. Only one is ever visible. #}
+    <div class="assistant-body">
+      <div class="assistant-log" id="assistant-log" role="log"
+           aria-live="polite" aria-atomic="false"></div>
+
+      {# --- Browsable catalogue ------------------------------------ #}
+      <div class="assistant-topics" id="assistant-topics" hidden>
+        <div class="assistant-topics-head">
+          <button type="button" class="assistant-back" id="assistant-topics-close">
+            {{ icon('arrow-left', 16) }} Back to chat
+          </button>
+        </div>
+        <p class="assistant-topics-intro">
+          Everything the assistant can answer. Tap any question to ask it —
+          or type it in your own words.
+        </p>
+        <div id="assistant-topics-list"></div>
+      </div>
+    </div>
 
     <div class="assistant-suggestions" id="assistant-suggestions"></div>
 

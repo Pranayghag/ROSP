@@ -21,9 +21,14 @@
   var suggestionBar = document.getElementById("assistant-suggestions");
   var form = document.getElementById("assistant-form");
   var input = document.getElementById("assistant-input");
+  var topicsPanel = document.getElementById("assistant-topics");
+  var topicsList = document.getElementById("assistant-topics-list");
+  var topicsOpen = document.getElementById("assistant-topics-open");
+  var topicsClose = document.getElementById("assistant-topics-close");
 
   var opened = false;
   var busy = false;
+  var topicsLoaded = false;
 
   // ------------------------------------------------------------ rendering
 
@@ -124,6 +129,7 @@
 
     busy = true;
     input.value = "";
+    hideTopics();
     setSuggestions([]);
     addMessage("user", text);
 
@@ -154,6 +160,88 @@
         input.focus();
       });
   }
+
+  // ------------------------------------------------------------ catalogue
+
+  /**
+   * Render the grouped question list.
+   *
+   * The groups come from the server, which already filtered them to this
+   * user's role -- the browser is not deciding what anyone may see.
+   */
+  function renderTopics(catalogue) {
+    topicsList.innerHTML = "";
+
+    (catalogue.groups || []).forEach(function (group) {
+      var section = document.createElement("section");
+      section.className = "assistant-topic-group";
+
+      var heading = document.createElement("h3");
+      heading.className = "assistant-topic-heading";
+      heading.textContent = group.name;
+      section.appendChild(heading);
+
+      (group.topics || []).forEach(function (topic) {
+        var row = document.createElement("div");
+        row.className = "assistant-topic";
+
+        var label = document.createElement("div");
+        label.className = "assistant-topic-title";
+        label.textContent = topic.title;
+        row.appendChild(label);
+
+        (topic.examples || []).forEach(function (example) {
+          var button = document.createElement("button");
+          button.type = "button";
+          button.className = "assistant-example";
+          button.textContent = example;
+          button.addEventListener("click", function () {
+            hideTopics();
+            send(example);
+          });
+          row.appendChild(button);
+        });
+
+        section.appendChild(row);
+      });
+
+      topicsList.appendChild(section);
+    });
+  }
+
+  function showTopics() {
+    topicsPanel.hidden = false;
+    topicsPanel.scrollTop = 0;
+
+    if (topicsLoaded) return;
+
+    fetch(root.dataset.topicsUrl)
+      .then(function (response) {
+        return response.ok ? response.json() : null;
+      })
+      .then(function (catalogue) {
+        if (!catalogue) return;
+        topicsLoaded = true;
+        renderTopics(catalogue);
+      })
+      .catch(function () {
+        topicsList.textContent =
+          "Could not load the question list just now. You can still type a " +
+          "question below.";
+      });
+  }
+
+  function hideTopics() {
+    topicsPanel.hidden = true;
+    input.focus();
+  }
+
+  topicsOpen.addEventListener("click", function () {
+    if (topicsPanel.hidden) showTopics();
+    else hideTopics();
+  });
+
+  topicsClose.addEventListener("click", hideTopics);
 
   // --------------------------------------------------------------- panel
 
@@ -197,7 +285,10 @@
   closeButton.addEventListener("click", close);
 
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !panel.hidden) close();
+    if (event.key !== "Escape" || panel.hidden) return;
+    // Step back one level at a time rather than dismissing everything.
+    if (!topicsPanel.hidden) hideTopics();
+    else close();
   });
 
   form.addEventListener("submit", function (event) {

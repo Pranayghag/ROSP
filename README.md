@@ -54,6 +54,8 @@ Student → submits complaint (+ photos) → Admin → assigns → Staff → res
   before submitting
 - Follow a complaint through a seven-step timeline
 - Confirm a fix, or reopen the complaint if the problem is still there
+- Ask the built-in **assistant** anything about their complaints — see
+  [docs/ASSISTANT.md](docs/ASSISTANT.md) for the full list of questions
 
 **For administrators**
 - Dashboard of everything open, unassigned, or past its deadline
@@ -83,6 +85,10 @@ Student → submits complaint (+ photos) → Admin → assigns → Staff → res
 - Advisory category and priority suggestions — never applied automatically
 - An email log recording every send attempt, so "was it delivered?" always has
   an honest answer
+- A **built-in assistant** on every page, answering from the asker's own rows.
+  Not a language model: it is keyword matching over the database, so it needs
+  no API key, runs offline, cannot invent a status, and every reply traces to a
+  line of code
 
 ---
 
@@ -534,6 +540,7 @@ python scripts/create_admin.py --email them@yourcollege.edu --name "Their Name"
 | Document | What it covers |
 | --- | --- |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the code fits together, and why |
+| [docs/ASSISTANT.md](docs/ASSISTANT.md) | Every question the in-app assistant answers |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What could come next, including image analysis |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, conventions, pull request process |
 | [SECURITY.md](SECURITY.md) | Reporting process and the measures already in place |
