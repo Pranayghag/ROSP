@@ -1,7 +1,7 @@
 <p align="center">
   <img src="app/static/img/campuscare-logo.png" alt="CampusCare" width="420">
 </p>
-
+just checking something on github
 # CampusCare — Smart College Complaint & Maintenance Management System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
