@@ -56,6 +56,7 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.admin import bp as admin_bp
     from .blueprints.attachments import bp as attachments_bp
     from .blueprints.auth import bp as auth_bp
+    from .blueprints.chat import bp as chat_bp
     from .blueprints.complaints import bp as complaints_bp
     from .blueprints.main import bp as main_bp
 
@@ -64,6 +65,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(complaints_bp)
     app.register_blueprint(attachments_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(chat_bp)
 
 
 def _register_error_handlers(app: Flask) -> None:

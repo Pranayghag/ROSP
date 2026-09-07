@@ -181,7 +181,15 @@
   </div>
 </footer>
 
+{# The assistant is only useful, and only permitted, once signed in. #}
+{% if current_user.is_authenticated %}
+  {% include "partials/_assistant.html" %}
+{% endif %}
+
 <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+{% if current_user.is_authenticated %}
+  <script src="{{ url_for('static', filename='js/assistant.js') }}"></script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

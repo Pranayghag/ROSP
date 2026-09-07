@@ -1,0 +1,57 @@
+{#
+  The CampusCare Assistant widget.
+
+  Rendered on every page for a signed-in user. Collapsed to a launcher button
+  until opened, so it never competes with the page content.
+
+  The transcript is not persisted anywhere -- it lives in this tab and is gone
+  when it closes.
+#}
+{% from "partials/_icons.html" import icon with context %}
+
+<div id="assistant" class="assistant" data-open-url="{{ url_for('chat.open_chat') }}"
+     data-ask-url="{{ url_for('chat.ask') }}"
+     data-csrf="{{ csrf_token() }}">
+
+  {# --- Launcher --------------------------------------------------- #}
+  <button type="button" class="assistant-launcher" id="assistant-launcher"
+          aria-expanded="false" aria-controls="assistant-panel"
+          aria-label="Open the {{ config.APP_NAME }} assistant">
+    <span class="assistant-launcher-icon">{{ icon('note', 22) }}</span>
+    <span class="assistant-launcher-label">Need help?</span>
+  </button>
+
+  {# --- Panel ------------------------------------------------------ #}
+  <section class="assistant-panel" id="assistant-panel" role="dialog"
+           aria-label="{{ config.APP_NAME }} assistant" hidden>
+
+    <header class="assistant-header">
+      <img src="{{ url_for('static', filename='img/campuscare-mark.png') }}"
+           alt="" width="32" height="32" class="assistant-avatar">
+      <div class="assistant-titles">
+        <div class="assistant-title">{{ config.APP_NAME }} Assistant</div>
+        <div class="assistant-subtitle">Answers about your complaints</div>
+      </div>
+      <button type="button" class="assistant-close" id="assistant-close"
+              aria-label="Close the assistant">{{ icon('x', 18) }}</button>
+    </header>
+
+    <div class="assistant-log" id="assistant-log" role="log"
+         aria-live="polite" aria-atomic="false"></div>
+
+    <div class="assistant-suggestions" id="assistant-suggestions"></div>
+
+    <form class="assistant-composer" id="assistant-form" autocomplete="off">
+      <label class="visually-hidden" for="assistant-input">Your question</label>
+      <input type="text" id="assistant-input" class="assistant-input"
+             placeholder="Ask about your complaints..." maxlength="500">
+      <button type="submit" class="assistant-send" aria-label="Send">
+        {{ icon('send', 18) }}
+      </button>
+    </form>
+
+    <p class="assistant-footnote">
+      Answers come from your own complaints. This chat is not saved.
+    </p>
+  </section>
+</div>
