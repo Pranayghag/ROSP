@@ -1,0 +1,38 @@
+
+{% extends "email/_base.html" %}
+{% import "email/_components.html" as ui %}
+
+{% block body %}
+  {{ ui.heading("Complaint submitted successfully") }}
+
+  {{ ui.paragraph(
+      "Hello " ~ recipient_name ~
+      ", your complaint has been recorded. Here are the details."
+  ) }}
+
+  {{ ui.details_open() }}
+    {{ ui.field("Complaint ID", complaint.code, emphasis=true) }}
+    {{ ui.field("Title", complaint.title, emphasis=true) }}
+    {{ ui.field("Category", complaint.category.name) }}
+    {{ ui.field("Priority", ui.pill(complaint.priority, priority_tone)) }}
+    {{ ui.field("Location", location_text) }}
+    {{ ui.field("Submitted By", complaint.student.name) }}
+    {{ ui.field("Submitted On", submitted_on) }}
+    {{ ui.field("Current Status", complaint.status) }}
+  {{ ui.details_close() }}
+
+  <div style="margin-top: 20px;">
+    <p style="font-weight: 600;">Complaint Description</p>
+    <p style="white-space: pre-line;">{{ complaint.description }}</p>
+  </div>
+
+  {{ ui.button("View Complaint", complaint_url) }}
+
+  {{ ui.paragraph(
+      "Please keep your Complaint ID for future reference."
+  ) }}
+{% endblock %}
+
+{% block footer_note %}
+  This is an automatic confirmation from CampusCare.
+{% endblock %}

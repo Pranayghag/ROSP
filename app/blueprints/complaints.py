@@ -1,3 +1,4 @@
+
 """Complaint submission, listing and details.
 
 Covers Phase 5 (submission), Phase 6 (photo evidence), Phase 9 (status
@@ -42,10 +43,15 @@ bp = Blueprint("complaints", __name__, url_prefix="/complaints")
 def _populate_choices(form: ComplaintForm) -> None:
     """Fill the category and location dropdowns from the database."""
     categories = db.session.scalars(
-        select(Category).where(Category.is_active.is_(True)).order_by(Category.name)
+        select(Category)
+        .where(Category.is_active.is_(True))
+        .order_by(Category.name)
     ).all()
+
     locations = db.session.scalars(
-        select(Location).where(Location.is_active.is_(True)).order_by(Location.name)
+        select(Location)
+        .where(Location.is_active.is_(True))
+        .order_by(Location.name)
     ).all()
 
     form.category_id.choices = [(c.id, c.name) for c in categories]
@@ -63,10 +69,13 @@ def _load_visible_complaint(complaint_id: int) -> Complaint:
             selectinload(Complaint.events),
         )
     )
+
     if complaint is None:
         abort(404)
+
     if not complaint.is_visible_to(current_user):
         abort(403)
+
     return complaint
 
 
@@ -74,22 +83,30 @@ def _load_visible_complaint(complaint_id: int) -> Complaint:
 @login_required
 def index():
     """Complaint history: a student's own, or a staff member's assigned queue."""
-    query = select(Complaint).options(selectinload(Complaint.attachments))
+    query = select(Complaint).options(
+        selectinload(Complaint.attachments)
+    )
 
     if current_user.is_student:
         query = query.where(Complaint.student_id == current_user.id)
         heading = "My Complaints"
     elif current_user.is_staff:
-        query = query.where(Complaint.assigned_staff_id == current_user.id)
+        query = query.where(
+            Complaint.assigned_staff_id == current_user.id
+        )
         heading = "Assigned to Me"
     else:
         heading = "All Complaints"
 
     status_filter = request.args.get("status", "").upper()
+
     if status_filter in Status.ALL:
         query = query.where(Complaint.status == status_filter)
 
-    complaints = db.session.scalars(query.order_by(Complaint.created_at.desc())).all()
+    complaints = db.session.scalars(
+        query.order_by(Complaint.created_at.desc())
+    ).all()
+
     return render_template(
         "complaints/list.html",
         complaints=complaints,
@@ -120,54 +137,116 @@ def new():
             description=form.description.data.strip(),
             category_id=form.category_id.data,
             location_id=form.location_id.data,
-            # The student's own choice is what gets stored. Any suggestion the
-            # UI offered was advisory only -- see services/suggestions.py.
+            # The student's own choice is what gets stored.
+            # Suggestions are advisory only.
             priority=form.priority.data,
             status=Status.PENDING,
             student_id=current_user.id,
         )
+
         db.session.add(complaint)
 
         try:
-            # flush() assigns the primary key so the complaint code and the
-            # attachment rows can reference it, without committing yet.
+            # Create IDs before assigning complaint code and attachments.
             db.session.flush()
             complaint.assign_code()
             apply_sla(complaint)
 
             for attachment in store_evidence(
-                form.photos.data, complaint, current_user.id
+                form.photos.data,
+                complaint,
+                current_user.id,
             ):
                 db.session.add(attachment)
 
             open_complaint(complaint, current_user)
+
+            # In-app notification for admins.
             notifications.notify_admins(
-                f"New complaint {complaint.code}: {complaint.title}", complaint
+                f"New complaint {complaint.code}: {complaint.title}",
+                complaint,
             )
+
+            # Commit complaint first. Email failures must not undo it.
             db.session.commit()
 
         except UploadError as exc:
-            # Nothing is written: store_evidence removes any partial files and
-            # the rollback discards the complaint row itself.
             db.session.rollback()
             flash(str(exc), "danger")
-            return render_template("complaints/new.html", form=form)
+            return render_template(
+                "complaints/new.html",
+                form=form,
+            )
 
         except Exception:
             db.session.rollback()
-            current_app.logger.exception("Failed to create complaint")
-            flash("Could not submit the complaint. Please try again.", "danger")
-            return render_template("complaints/new.html", form=form)
+            current_app.logger.exception(
+                "Failed to create complaint"
+            )
+            flash(
+                "Could not submit the complaint. Please try again.",
+                "danger",
+            )
+            return render_template(
+                "complaints/new.html",
+                form=form,
+            )
+
+        # Send emails only after the complaint is committed.
+        # The mailer records SENT / FAILED / NOT_CONFIGURED.
+        email_logs = []
+
+        try:
+            student_log = mailers.notify_student_submitted(complaint)
+            if student_log is not None:
+                email_logs.append(student_log)
+
+            admin_log = mailers.notify_admin_new_complaint(complaint)
+            if admin_log is not None:
+                email_logs.append(admin_log)
+
+            # Persist email log rows separately from the complaint.
+            db.session.commit()
+
+        except Exception:
+            # Keep the complaint saved even if notification logging fails.
+            db.session.rollback()
+            current_app.logger.exception(
+                "Complaint %s was saved, but email processing failed",
+                complaint.code,
+            )
 
         photo_count = len(complaint.attachments)
+
         flash(
             f"Complaint {complaint.code} submitted"
-            + (f" with {photo_count} photo(s)." if photo_count else "."),
+            + (
+                f" with {photo_count} photo(s)."
+                if photo_count
+                else "."
+            ),
             "success",
         )
-        return redirect(url_for("complaints.detail", complaint_id=complaint.id))
 
-    return render_template("complaints/new.html", form=form)
+        # Warn if at least one attempted email was not accepted by SMTP.
+        if any(not log.was_delivered for log in email_logs):
+            flash(
+                "Complaint saved, but one or more notification emails "
+                "could not be sent. Check Email Logs and SMTP settings.",
+                "warning",
+            )
+
+        return redirect(
+            url_for(
+                "complaints.detail",
+                complaint_id=complaint.id,
+            )
+        )
+
+    return render_template(
+        "complaints/new.html",
+        form=form,
+    )
 
 
 @bp.route("/<int:complaint_id>")
@@ -175,6 +254,7 @@ def new():
 def detail(complaint_id: int):
     """Complaint details: evidence gallery, status, timeline and actions."""
     complaint = _load_visible_complaint(complaint_id)
+
     return render_template(
         "complaints/detail.html",
         complaint=complaint,
@@ -186,7 +266,7 @@ def detail(complaint_id: int):
 @bp.route("/<int:complaint_id>/status", methods=["POST"])
 @login_required
 def update_status(complaint_id: int):
-    """Apply a status transition (Phase 9) or a student verdict (Phase 11)."""
+    """Apply a status transition or a student verdict."""
     complaint = _load_visible_complaint(complaint_id)
     new_status = (request.form.get("status") or "").upper()
     note = (request.form.get("note") or "").strip() or None
@@ -194,40 +274,67 @@ def update_status(complaint_id: int):
     email_log = None
 
     try:
-        # --- Staff finishing the work ------------------------------------
+        # Staff finishing the work.
         if new_status == Status.RESOLVED:
-            resolution_note = (request.form.get("resolution_note") or "").strip()
+            resolution_note = (
+                request.form.get("resolution_note") or ""
+            ).strip()
+
             if len(resolution_note) < 10:
                 flash(
-                    "Describe what you did before marking the complaint resolved "
-                    "(at least 10 characters).",
+                    "Describe what you did before marking the complaint "
+                    "resolved (at least 10 characters).",
                     "danger",
                 )
-                return redirect(url_for("complaints.detail", complaint_id=complaint.id))
+                return redirect(
+                    url_for(
+                        "complaints.detail",
+                        complaint_id=complaint.id,
+                    )
+                )
+
             complaint.resolution_note = resolution_note
 
-        # --- Student saying it is still broken ---------------------------
+        # Student saying it is still broken.
         if new_status == Status.REOPENED:
-            reason = (request.form.get("reopen_reason") or "").strip()
+            reason = (
+                request.form.get("reopen_reason") or ""
+            ).strip()
+
             if len(reason) < 5:
-                flash("Please say what is still wrong.", "danger")
-                return redirect(url_for("complaints.detail", complaint_id=complaint.id))
+                flash(
+                    "Please say what is still wrong.",
+                    "danger",
+                )
+                return redirect(
+                    url_for(
+                        "complaints.detail",
+                        complaint_id=complaint.id,
+                    )
+                )
+
             complaint.reopen_reason = reason
             note = note or reason
 
-        transition(complaint, new_status, current_user, note)
+        transition(
+            complaint,
+            new_status,
+            current_user,
+            note,
+        )
 
-        # Proof-of-repair photos arrive in the same submit as the resolution.
+        # Proof-of-repair photos arrive with the resolution.
         if new_status == Status.RESOLVED:
             _attach_resolution_photos(complaint)
 
         notifications.notify_complaint_parties(
             complaint,
-            f"{complaint.code} is now {complaint.status.replace('_', ' ').title()}.",
+            f"{complaint.code} is now "
+            f"{complaint.status.replace('_', ' ').title()}.",
             exclude_user_id=current_user.id,
         )
 
-        # --- Emails ------------------------------------------------------
+        # Emails for status changes.
         if new_status == Status.RESOLVED:
             notifications.notify(
                 complaint.student_id,
@@ -235,43 +342,66 @@ def update_status(complaint_id: int):
                 "Please verify the resolution.",
                 complaint,
             )
+
             email_log = mailers.notify_student_resolved(complaint)
 
         elif new_status == Status.REOPENED:
-            email_log = mailers.notify_reopened(complaint, complaint.assigned_staff)
+            email_log = mailers.notify_reopened(
+                complaint,
+                complaint.assigned_staff,
+            )
+
             notifications.notify_admins(
-                f"{complaint.code} was reopened by the student.", complaint
+                f"{complaint.code} was reopened by the student.",
+                complaint,
             )
 
         db.session.commit()
 
         if email_log is not None and not email_log.was_delivered:
             flash(
-                "Complaint updated, but the notification email could NOT be sent.",
+                "Complaint updated, but the notification email "
+                "could NOT be sent.",
                 "warning",
             )
         else:
-            flash("Complaint updated.", "success")
+            flash(
+                "Complaint updated.",
+                "success",
+            )
 
     except (WorkflowError, UploadError) as exc:
         db.session.rollback()
         flash(str(exc), "danger")
+
     except Exception:
         db.session.rollback()
-        current_app.logger.exception("Status update failed for complaint %s", complaint_id)
-        flash("Could not update the complaint. Please try again.", "danger")
+        current_app.logger.exception(
+            "Status update failed for complaint %s",
+            complaint_id,
+        )
+        flash(
+            "Could not update the complaint. Please try again.",
+            "danger",
+        )
 
-    return redirect(url_for("complaints.detail", complaint_id=complaint.id))
+    return redirect(
+        url_for(
+            "complaints.detail",
+            complaint_id=complaint.id,
+        )
+    )
 
 
 def _attach_resolution_photos(complaint: Complaint) -> None:
-    """Store staff 'after' photos against a complaint (Phase 10).
-
-    Uses exactly the same validation pipeline as student evidence; only the
-    ``attachment_type`` differs.
-    """
+    """Store staff 'after' photos against a complaint."""
     photos = request.files.getlist("resolution_photos")
-    for attachment in store_evidence(photos, complaint, current_user.id):
+
+    for attachment in store_evidence(
+        photos,
+        complaint,
+        current_user.id,
+    ):
         attachment.attachment_type = AttachmentType.RESOLUTION
         db.session.add(attachment)
 
@@ -279,39 +409,44 @@ def _attach_resolution_photos(complaint: Complaint) -> None:
 @bp.route("/suggest", methods=["POST"])
 @login_required
 def suggest():
-    """Return advisory category/priority hints for the text typed so far.
-
-    This endpoint never modifies anything. The response is rendered as a
-    dismissible hint next to the dropdowns; the student remains free to submit
-    whatever they chose.
-    """
+    """Return advisory category/priority hints for the text typed so far."""
     payload = request.get_json(silent=True) or {}
+
     title = str(payload.get("title", ""))[:200]
     description = str(payload.get("description", ""))[:5000]
 
     result = suggestions.suggest(title, description)
-    category, priority = result["category"], result["priority"]
+    category = result["category"]
+    priority = result["priority"]
 
     category_id = None
+
     if category.is_useful:
-        match = db.session.scalar(select(Category).where(Category.name == category.value))
+        match = db.session.scalar(
+            select(Category).where(
+                Category.name == category.value
+            )
+        )
         category_id = match.id if match else None
 
     return jsonify(
         {
             "category": {
-                "value": category.value if category.is_useful else None,
+                "value": (
+                    category.value if category.is_useful else None
+                ),
                 "id": category_id,
                 "confidence": round(category.confidence, 2),
                 "reason": category.reason,
             },
             "priority": {
-                "value": priority.value if priority.is_useful else None,
+                "value": (
+                    priority.value if priority.is_useful else None
+                ),
                 "confidence": round(priority.confidence, 2),
                 "reason": priority.reason,
             },
-            # Restated in the payload so any future client cannot mistake these
-            # for values to apply automatically.
+            # Suggestions never override the user's selections.
             "advisory_only": True,
         }
     )
